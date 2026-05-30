@@ -649,7 +649,7 @@ if ($route) {
             </div>
             <div class="form-group" id="quantity-group">
                 <label for="quantity_order">Количество: <span id="quantityVal_order">1</span></label>
-                <input type="range" id="quantity_order" min="1" max="20" value="1">
+                <input type="range" id="quantity_order" min="1" max="100" value="1">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="delivery-group">
@@ -676,7 +676,7 @@ if ($route) {
             </div>
             <div class="form-group" id="message-group">
                 <label for="message_order">Пожелания к заказу</label>
-                <textarea id="message_order" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
+                <textarea id="message_order" rows="3" placeholder="Например: доставка к 18:00"></textarea>
                 <div class="field-error"></div>
             </div>
             <div class="calculator-result">
