@@ -2,38 +2,37 @@
 session_start();
 require_once 'db.php';
 
-// Определяем, API ли это (по параметру route)
 $route = $_GET['route'] ?? null;
 if ($route) {
     header('Content-Type: application/json');
     $method = $_SERVER['REQUEST_METHOD'];
-
-    // Эмуляция PUT/DELETE через POST + _method
-    if ($method === 'POST' && isset($_POST['_method'])) {
-        $method = strtoupper($_POST['_method']);
+    // Эмуляция PUT через POST + _method
+    if ($method === 'POST' && isset($_GET['_method'])) {
+        $method = strtoupper($_GET['_method']);
     }
-    $input = [];
-    if ($method === 'POST' || $method === 'PUT') {
-        $input = json_decode(file_get_contents('php://input'), true);
-        if (!$input && $method === 'POST') {
-            $input = $_POST; // на случай, если пришло form-data
-        }
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input && ($method === 'POST' || $method === 'PUT')) {
+        $input = $_POST;
     }
-
     $pdo = getDB();
 
-    // Маршрут: создание заявки
-    if ($route === 'contact' && $method === 'POST') {
+    // Создание заказа (неавторизованный -> регистрация)
+    if ($route === 'order' && $method === 'POST') {
         $name = trim($input['name'] ?? '');
         $email = trim($input['email'] ?? '');
-        $message = trim($input['message'] ?? '');
+        $product = trim($input['product'] ?? '');
+        $quantity = (int)($input['quantity'] ?? 0);
+        $delivery = (int)($input['delivery'] ?? 0);
+        $gift = isset($input['gift']) ? 1 : 0;
+        $organic = isset($input['organic']) ? 1 : 0;
+        $total = (int)($input['total'] ?? 0);
 
         $errors = [];
         if (empty($name)) $errors['name'] = 'Имя обязательно';
-        elseif (strlen($name) > 100) $errors['name'] = 'Имя не длиннее 100 символов';
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Некорректный email';
-        if (empty($message)) $errors['message'] = 'Сообщение обязательно';
-        elseif (strlen($message) > 1000) $errors['message'] = 'Сообщение не длиннее 1000 символов';
+        if (empty($product)) $errors['product'] = 'Выберите продукт';
+        if ($quantity < 1) $errors['quantity'] = 'Количество должно быть не менее 1';
+        if ($total <= 0) $errors['total'] = 'Некорректная сумма';
 
         if (!empty($errors)) {
             http_response_code(400);
@@ -41,49 +40,63 @@ if ($route) {
             exit;
         }
 
-        $login = generateUniqueLogin($pdo);
-        $plainPassword = generatePassword();
-        $passwordHash = password_hash($plainPassword, PASSWORD_DEFAULT);
-
+        $pdo->beginTransaction();
         try {
-            $stmt = $pdo->prepare("INSERT INTO users (login, password_hash, name, email, message) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$login, $passwordHash, $name, $email, $message]);
-            $userId = $pdo->lastInsertId();
+            if (isset($_SESSION['user_id'])) {
+                $userId = $_SESSION['user_id'];
+                $login = null;
+                $plainPassword = null;
+            } else {
+                $login = generateUniqueLogin($pdo);
+                $plainPassword = generatePassword();
+                $hash = password_hash($plainPassword, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("INSERT INTO users (login, password_hash, name, email) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$login, $hash, $name, $email]);
+                $userId = $pdo->lastInsertId();
+                $_SESSION['user_id'] = $userId;
+                $_SESSION['login'] = $login;
+            }
 
-            $_SESSION['user_id'] = $userId;
-            $_SESSION['login'] = $login;
+            $stmt = $pdo->prepare("INSERT INTO orders (user_id, product_type, quantity, delivery_cost, gift_wrap, organic_cert, total_price) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$userId, $product, $quantity, $delivery, $gift, $organic, $total]);
+            $orderId = $pdo->lastInsertId();
+            $pdo->commit();
 
+            $response = ['status' => 'created', 'order_id' => $orderId];
+            if ($login && $plainPassword) {
+                $response['login'] = $login;
+                $response['password'] = $plainPassword;
+            }
             http_response_code(201);
-            echo json_encode([
-                'status' => 'created',
-                'login' => $login,
-                'password' => $plainPassword
-            ]);
+            echo json_encode($response);
         } catch (Exception $e) {
+            $pdo->rollBack();
             http_response_code(500);
-            echo json_encode(['error' => 'Database error']);
+            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
         }
         exit;
     }
 
-    // Маршрут: обновление заявки (требует авторизации)
-    if ($route === 'contact' && $method === 'PUT') {
+    // Обновление заказа (только авторизованный)
+    if ($route === 'order' && $method === 'PUT' && isset($_GET['id'])) {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
             echo json_encode(['error' => 'Unauthorized']);
             exit;
         }
+        $orderId = (int)$_GET['id'];
         $userId = $_SESSION['user_id'];
-        $name = trim($input['name'] ?? '');
-        $email = trim($input['email'] ?? '');
-        $message = trim($input['message'] ?? '');
+        $product = trim($input['product'] ?? '');
+        $quantity = (int)($input['quantity'] ?? 0);
+        $delivery = (int)($input['delivery'] ?? 0);
+        $gift = isset($input['gift']) ? 1 : 0;
+        $organic = isset($input['organic']) ? 1 : 0;
+        $total = (int)($input['total'] ?? 0);
 
         $errors = [];
-        if (empty($name)) $errors['name'] = 'Имя обязательно';
-        elseif (strlen($name) > 100) $errors['name'] = 'Имя не длиннее 100 символов';
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Некорректный email';
-        if (empty($message)) $errors['message'] = 'Сообщение обязательно';
-        elseif (strlen($message) > 1000) $errors['message'] = 'Сообщение не длиннее 1000 символов';
+        if (empty($product)) $errors['product'] = 'Выберите продукт';
+        if ($quantity < 1) $errors['quantity'] = 'Количество должно быть не менее 1';
+        if ($total <= 0) $errors['total'] = 'Некорректная сумма';
 
         if (!empty($errors)) {
             http_response_code(400);
@@ -91,18 +104,56 @@ if ($route) {
             exit;
         }
 
-        try {
-            $stmt = $pdo->prepare("UPDATE users SET name = ?, email = ?, message = ? WHERE id = ?");
-            $stmt->execute([$name, $email, $message, $userId]);
-            echo json_encode(['status' => 'updated']);
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Update failed']);
+        $stmt = $pdo->prepare("SELECT user_id FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch();
+        if (!$order || $order['user_id'] != $userId) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("UPDATE orders SET product_type=?, quantity=?, delivery_cost=?, gift_wrap=?, organic_cert=?, total_price=? WHERE id=?");
+        $stmt->execute([$product, $quantity, $delivery, $gift, $organic, $total, $orderId]);
+        echo json_encode(['status' => 'updated']);
+        exit;
+    }
+
+    // Получение списка заказов пользователя
+    if ($route === 'orders' && $method === 'GET') {
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$_SESSION['user_id']]);
+        $orders = $stmt->fetchAll();
+        echo json_encode($orders);
+        exit;
+    }
+
+    // Получение одного заказа
+    if ($route === 'order' && $method === 'GET' && isset($_GET['id'])) {
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+        $orderId = (int)$_GET['id'];
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?");
+        $stmt->execute([$orderId, $_SESSION['user_id']]);
+        $order = $stmt->fetch();
+        if ($order) {
+            echo json_encode($order);
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'Order not found']);
         }
         exit;
     }
 
-    // Маршрут: вход
+    // Вход
     if ($route === 'login' && $method === 'POST') {
         $login = trim($input['login'] ?? '');
         $password = $input['password'] ?? '';
@@ -121,25 +172,6 @@ if ($route) {
         } else {
             http_response_code(401);
             echo json_encode(['error' => 'Invalid credentials']);
-        }
-        exit;
-    }
-
-    // Маршрут: получение профиля
-    if ($route === 'profile' && $method === 'GET') {
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['error' => 'Unauthorized']);
-            exit;
-        }
-        $stmt = $pdo->prepare("SELECT name, email, message FROM users WHERE id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $user = $stmt->fetch();
-        if ($user) {
-            echo json_encode($user);
-        } else {
-            http_response_code(404);
-            echo json_encode(['error' => 'User not found']);
         }
         exit;
     }
@@ -222,6 +254,14 @@ if ($route) {
         .form-group.error input, .form-group.error textarea {
             border-color: #f44336;
         }
+
+  .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; visibility: hidden; opacity: 0; transition: 0.3s; }
+        .modal.active { visibility: visible; opacity: 1; }
+        .modal-card { background: white; border-radius: 24px; padding: 30px; max-width: 450px; width: 90%; position: relative; }
+        .modal-card .close { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; }
+         .orders-list { margin-top: 30px; background: white; border-radius: 16px; padding: 20px; }
+        .order-item { border-bottom: 1px solid #eee; padding: 15px; cursor: pointer; }
+        .order-item:hover { background: #f9f9f9; }
     </style>
 </head>
 <body>
@@ -531,11 +571,8 @@ if ($route) {
     </section>
 
     
-<section id="contact" class="section">
-    <div class="section-title">
-        <h2>Свяжитесь с фермером</h2>
-        <p>Оставьте заявку, и наш фермер свяжется с вами для оформления заказа</p>
-    </div>
+<section id="order-form" class="section">
+    <div class="section-title"><h2>Оформить заказ</h2><p>Заполните форму, и мы доставим продукты</p></div>
 
     <div id="auth-status" class="auth-buttons">
         <?php if (isset($_SESSION['user_id'])): ?>
@@ -546,25 +583,66 @@ if ($route) {
         <?php endif; ?>
     </div>
 
-    <form id="contact-form" class="contact-form" action="index.php" method="POST">
-        <div class="form-group" id="name-group">
-            <label for="name">Ваше имя *</label>
-            <input type="text" id="name" name="name" required minlength="2" placeholder="Иван Петров">
-            <div class="field-error"></div>
-        </div>
-        <div class="form-group" id="email-group">
-            <label for="email">Электронная почта *</label>
-            <input type="email" id="email" name="email" required placeholder="example@mail.ru">
-            <div class="field-error"></div>
-        </div>
-        <div class="form-group" id="message-group">
-            <label for="message">Ваше сообщение *</label>
-            <textarea id="message" name="message" rows="5" required placeholder="Напишите ваш вопрос или заказ..." minlength="10"></textarea>
-            <div class="field-error"></div>
-        </div>
-        <button type="submit" class="btn">Отправить заявку</button>
-        <div class="form-message" id="form-message"></div>
-    </form>
+    <div class="calculator" style="max-width:800px; margin:0 auto;">
+        <form id="orderForm" class="calculator-form">
+            <div class="form-group" id="name-group">
+                <label for="name">Ваше имя *</label>
+                <input type="text" id="name" name="name" required placeholder="Иван Петров">
+                <div class="field-error"></div>
+            </div>
+            <div class="form-group" id="email-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" required placeholder="example@mail.ru">
+                <div class="field-error"></div>
+            </div>
+            <div class="form-group" id="product-group">
+                <label for="product">Продукт *</label>
+                <select id="product" name="product">
+                    <option value="vegetables" data-price="150">Овощи (150 ₽/кг)</option>
+                    <option value="fruits" data-price="300">Фрукты (300 ₽/кг)</option>
+                    <option value="milk" data-price="200">Молочные продукты (200 ₽/л)</option>
+                    <option value="honey" data-price="400">Мёд (400 ₽/бут)</option>
+                    <option value="cheese" data-price="500">Сыр (500 ₽/кг)</option>
+                </select>
+                <div class="field-error"></div>
+            </div>
+            <div class="form-group" id="quantity-group">
+                <label for="quantity">Количество: <span id="quantityVal">1</span></label>
+                <input type="range" id="quantity" min="1" max="20" value="1">
+                <div class="field-error"></div>
+            </div>
+            <div class="form-group" id="delivery-group">
+                <label for="delivery">Доставка</label>
+                <select id="delivery">
+                    <option value="0">Самовывоз (бесплатно)</option>
+                    <option value="300">По городу (300 ₽)</option>
+                    <option value="500">За город (500 ₽)</option>
+                </select>
+                <div class="field-error"></div>
+            </div>
+            <div class="form-group full-width">
+                <label>Дополнительно</label>
+                <div class="options-group">
+                    <label class="option-checkbox"><input type="checkbox" id="gift" value="200"> Подарочная упаковка (+200 ₽)</label>
+                    <label class="option-checkbox"><input type="checkbox" id="organic" value="150"> Сертификат "Био" (+150 ₽)</label>
+                </div>
+            </div>
+            <div class="calculator-result">
+                <h3>Итоговая стоимость</h3>
+                <div class="total-price" id="total-price">0 ₽</div>
+            </div>
+            <button type="submit" class="btn">Оформить заказ</button>
+            <div id="form-message" class="form-message"></div>
+        </form>
+    </div>
+
+    <!-- Список заказов для авторизованного -->
+    <?php if (isset($_SESSION['user_id'])): ?>
+    <div class="orders-list" id="orders-container">
+        <h3>Мои заказы</h3>
+        <div id="orders-list">Загрузка...</div>
+    </div>
+    <?php endif; ?>
 </section>
 
 <footer>
@@ -591,26 +669,26 @@ if ($route) {
         </div>
 </footer>
 
-<div id="login-modal" class="credentials-modal">
-    <div class="credentials-card">
-        <span class="close" id="close-login-modal">&times;</span>
+<div id="login-modal" class="modal">
+    <div class="modal-card">
+        <span class="close" id="close-login">&times;</span>
         <h3>Вход в систему</h3>
-        <form id="login-form">
-            <div class="form-group"><label>Логин</label><input type="text" id="login-login" required></div>
+        <form id="loginForm">
+            <div class="form-group"><label>Логин</label><input type="text" id="login-username" required></div>
             <div class="form-group"><label>Пароль</label><input type="password" id="login-password" required></div>
             <button type="submit" class="btn">Войти</button>
-            <div id="login-error" style="color: red; margin-top: 10px;"></div>
+            <div id="login-error" style="color:red; margin-top:10px;"></div>
         </form>
     </div>
 </div>
 
-<div id="creds-modal" class="credentials-modal">
-    <div class="credentials-card">
-        <span class="close" id="close-creds-modal">&times;</span>
+<div id="creds-modal" class="modal">
+    <div class="modal-card">
+        <span class="close" id="close-creds">&times;</span>
         <h3>Ваши данные для входа</h3>
         <p><strong>Логин:</strong> <span id="new-login"></span></p>
         <p><strong>Пароль:</strong> <span id="new-password"></span></p>
-        <p>Сохраните их! Вы будете автоматически авторизованы.</p>
+        <p>Сохраните их! Вы уже авторизованы.</p>
         <button class="btn" id="close-creds-btn">Закрыть</button>
     </div>
 </div>
