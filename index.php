@@ -511,64 +511,7 @@ if ($route) {
     </section>
 
     <!-- ========== SECTION: КАЛЬКУЛЯТОР СТОИМОСТИ ========== -->
-    <section id="calculator" class="section">
-        <div class="section-title">
-            <h2>Калькулятор заказа</h2>
-            <p>Рассчитайте стоимость вашей корзины с фермерскими продуктами</p>
-        </div>
-        
-        <div class="calculator">
-            <!-- Форма калькулятора. Событие 'input' на элементах вызывает пересчёт -->
-            <form class="calculator-form" id="price-calculator">
-                <div class="form-group">
-                    <label for="product">Тип продукта</label>
-                    <select id="product" name="product">
-                        <option value="150">Овощи (150 ₽/кг)</option>
-                        <option value="300">Фрукты (300 ₽/кг)</option>
-                        <option value="200">Молоко (200 ₽/л)</option>
-                        <option value="400">Мёд (400 ₽/бут.)</option>
-                        <option value="500">Сыр (500 ₽/кг)</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="quantity">Количество: <span id="quantityValue">5</span> кг/л</label>
-                    <!-- Ползунок для выбора количества -->
-                    <input type="range" id="quantity" name="quantity" min="1" max="20" value="5">
-                </div>
-                
-                <div class="form-group">
-                    <label for="delivery">Доставка</label>
-                    <select id="delivery" name="delivery">
-                        <option value="0">Самовывоз (бесплатно)</option>
-                        <option value="300">По городу (300 ₽)</option>
-                        <option value="500">За город (500 ₽)</option>
-                    </select>
-                </div>
-                
-                <div class="form-group full-width">
-                    <label>Дополнительно</label>
-                    <div class="options-group">
-                        <div class="option-checkbox">
-                            <input type="checkbox" id="gift" name="gift" value="200">
-                            <label for="gift">Подарочная упаковка (+200 ₽)</label>
-                        </div>
-                        <div class="option-checkbox">
-                            <input type="checkbox" id="organic" name="organic" value="150">
-                            <label for="organic">Сертификат "Био" (+150 ₽)</label>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Блок с результатом вычислений -->
-                <div class="calculator-result">
-                    <h3>Итоговая стоимость</h3>
-                    <div class="total-price" id="total-price">1 050 ₽</div>
-                    <p class="hint">(5 кг овощей × 150 ₽ + доставка 0 ₽)</p>
-                </div>
-            </form>
-        </div>
-    </section>
+    
 
     <!-- ========== SECTION: БЛОГ ========== -->
     <section id="blog" class="section">
