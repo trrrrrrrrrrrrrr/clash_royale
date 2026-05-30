@@ -388,6 +388,14 @@ if (isset($_SESSION['user_id'])) {
             text-decoration: underline;
             cursor: pointer;
         }
+
+
+        #submit-order {
+    display: block;
+    width: auto;
+    margin: 20px auto 0;
+    text-align: center;
+}
     </style>
 </head>
 <body>
