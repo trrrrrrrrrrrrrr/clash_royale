@@ -285,51 +285,55 @@ if ($route) {
             border-radius: 16px;
         }
 
-          .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            visibility: hidden;
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-        .modal.active {
-            visibility: visible;
-            opacity: 1;
-        }
-        .modal-card {
-            background: white;
-            border-radius: 28px;
-            padding: 30px;
-            max-width: 450px;
-            width: 90%;
-            position: relative;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            transform: scale(0.9);
-            transition: transform 0.2s;
-        }
-        .modal.active .modal-card {
-            transform: scale(1);
-        }
-        .modal-card .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            cursor: pointer;
-            color: #888;
-        }
-        .modal-card .close:hover {
-            color: #f44336;
-        }
+         .modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0,0,0,0.8) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 10000 !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    transition: all 0.3s ease !important;
+    transform: none !important; /* отключаем старую трансформацию */
+}
+.modal.active {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+.modal-card {
+    background: white !important;
+    border-radius: 28px !important;
+    padding: 30px !important;
+    max-width: 450px !important;
+    width: 90% !important;
+    position: relative !important;
+    text-align: center !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
+    transform: scale(0.9) !important;
+    transition: transform 0.2s !important;
+}
+.modal.active .modal-card {
+    transform: scale(1) !important;
+}
+.modal-card .close {
+    position: absolute !important;
+    top: 15px !important;
+    right: 20px !important;
+    font-size: 28px !important;
+    cursor: pointer !important;
+    color: #888 !important;
+    background: none !important;
+    border: none !important;
+    line-height: 1 !important;
+}
+.modal-card .close:hover {
+    color: #f44336 !important;
+}
 
 
          .profile-link {
