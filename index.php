@@ -85,7 +85,7 @@ if ($route) {
         exit;
     }
 
-    // Обновление заказа (аналогично добавить поле consent)
+    // Обновление заказа
     if ($route === 'order' && $method === 'PUT' && isset($_GET['id'])) {
         try {
             if (!isset($_SESSION['user_id'])) {
@@ -143,7 +143,7 @@ if ($route) {
         exit;
     }
 
-    // Остальные маршруты (GET orders, GET order, POST login) без изменений
+    // Получение списка заказов
     if ($route === 'orders' && $method === 'GET') {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
@@ -157,6 +157,7 @@ if ($route) {
         exit;
     }
 
+    // Получение одного заказа + данные пользователя
     if ($route === 'order' && $method === 'GET' && isset($_GET['id'])) {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
@@ -176,6 +177,7 @@ if ($route) {
         exit;
     }
 
+    // Логин
     if ($route === 'login' && $method === 'POST') {
         $login = trim($input['login'] ?? '');
         $password = $input['password'] ?? '';
@@ -213,151 +215,143 @@ if ($route) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Дополнительные стили для авторизации и сообщений */
-        .auth-buttons {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 20;
+        .auth-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .auth-buttons .btn {
+        .auth-nav .btn {
             padding: 8px 16px;
             font-size: 0.9rem;
             margin-left: 10px;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
         }
-     body .modal {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        background: rgba(0,0,0,0.8) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        z-index: 10000 !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        transition: all 0.3s ease !important;
-        transform: none !important;           /* отключаем старую трансформацию */
-    }
-    body .modal.active {
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
-    body .modal .modal-card {
-        background: white !important;
-        border-radius: 28px !important;
-        padding: 30px !important;
-        max-width: 450px !important;
-        width: 90% !important;
-        position: relative !important;
-        text-align: center !important;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-        transform: scale(0.9) !important;
-        transition: transform 0.2s !important;
-        margin: auto !important;
-    }
-    body .modal.active .modal-card {
-        transform: scale(1) !important;
-    }
-    body .modal .close {
-        position: absolute !important;
-        top: 15px !important;
-        right: 20px !important;
-        font-size: 28px !important;
-        cursor: pointer !important;
-        color: #888 !important;
-        background: none !important;
-        border: none !important;
-        line-height: 1 !important;
-    }
-    body .modal .close:hover {
-        color: #f44336 !important;
-    }
-
-    /* ========== ОСТАЛЬНЫЕ СТИЛИ ДЛЯ ФОРМЫ И КАЛЬКУЛЯТОРА ========== */
-    .field-error {
-        color: #f44336;
-        font-size: 0.8rem;
-        margin-top: 5px;
-    }
-    .form-group.error input,
-    .form-group.error select,
-    .form-group.error textarea {
-        border-color: #f44336;
-    }
-    .option-checkbox {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: #f9f9f9;
-        padding: 8px 15px;
-        border-radius: 40px;
-        cursor: pointer;
-    }
-    .calculator-form input,
-    .calculator-form select,
-    .calculator-form textarea {
-        width: 100%;
-        padding: 14px;
-        border: 2px solid var(--border-color);
-        border-radius: 12px;
-        font-family: 'Nunito', sans-serif;
-        font-size: 1rem;
-        transition: all 0.3s;
-        background-color: white;
-    }
-    .calculator-form input:focus,
-    .calculator-form select:focus,
-    .calculator-form textarea:focus {
-        border-color: var(--primary-color);
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(76,175,80,0.2);
-    }
-    .calculator-result {
-        background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
-        border-radius: 16px;
-        text-align: center;
-        padding: 25px;
-        margin-top: 20px;
-    }
-    .total-price {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #4CAF50;
-    }
-    .form-message {
-        margin-top: 15px;
-        padding: 12px;
-        border-radius: 10px;
-        text-align: center;
-        font-weight: 600;
-        display: none;
-    }
-    .form-message.success {
-        display: block;
-        background: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-    }
-    .form-message.error {
-        display: block;
-        background: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-    }
-    .user-info {
-        background: rgba(255,255,255,0.9);
-        border-radius: 30px;
-        padding: 5px 15px;
-        display: inline-block;
-        color: #333;
-    }
-
-         .profile-link {
+        .user-info {
+            background: rgba(255,255,255,0.2);
+            border-radius: 30px;
+            padding: 5px 15px;
+            color: white;
+        }
+        /* Переопределение стилей модальных окон (центрирование) */
+        body .modal {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0,0,0,0.85) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 10000 !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            transition: all 0.3s ease !important;
+            transform: none !important;
+        }
+        body .modal.active {
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        body .modal .modal-card {
+            background: white !important;
+            border-radius: 28px !important;
+            padding: 30px !important;
+            max-width: 450px !important;
+            width: 90% !important;
+            position: relative !important;
+            text-align: center !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
+            transform: scale(0.9) !important;
+            transition: transform 0.2s !important;
+            margin: 0 auto !important;
+        }
+        body .modal.active .modal-card {
+            transform: scale(1) !important;
+        }
+        body .modal .close {
+            position: absolute !important;
+            top: 15px !important;
+            right: 20px !important;
+            font-size: 28px !important;
+            cursor: pointer !important;
+            color: #888 !important;
+            background: none !important;
+            border: none !important;
+            line-height: 1 !important;
+        }
+        body .modal .close:hover {
+            color: #f44336 !important;
+        }
+        .field-error {
+            color: #f44336;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        .form-group.error input,
+        .form-group.error select,
+        .form-group.error textarea {
+            border-color: #f44336;
+        }
+        .option-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f9f9f9;
+            padding: 8px 15px;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        .calculator-form input,
+        .calculator-form select,
+        .calculator-form textarea {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background-color: white;
+        }
+        .calculator-form input:focus,
+        .calculator-form select:focus,
+        .calculator-form textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(76,175,80,0.2);
+        }
+        .calculator-result {
+            background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+            border-radius: 16px;
             text-align: center;
-            margin-top: 30px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+        .total-price {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .form-message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        .form-message.success {
+            display: block;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .form-message.error {
+            display: block;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
 
     </style>
@@ -379,6 +373,17 @@ if ($route) {
             <li><a href="#gallery"><i class="fas fa-images"></i> Галерея</a></li>
             <li><a href="#contact"><i class="fas fa-address-book"></i> Контакты</a></li>
         </ul>
+
+          <div class="auth-nav">
+            <?php if (isset($_SESSION['user_id'])): ?>
+                
+                <a href="profile.php" class="btn">👤 Личный кабинет</a>
+                
+            <?php else: ?>
+                <button id="login-btn" class="btn">Войти</button>
+            <?php endif; ?>
+        </div>
+
         <div class="burger" id="burgerBtn">
             <div></div><div></div><div></div>
         </div>
@@ -614,20 +619,8 @@ if ($route) {
     
 <section id="order-form" class="section">
     <div class="section-title"><h2>Оформить заказ</h2><p>Заполните форму, и мы доставим продукты</p></div>
-
-    <div id="auth-status" style="text-align: right; margin-bottom: 20px;">
-        <?php if (isset($_SESSION['user_id'])): ?>
-            <span class="user-info">Привет, <?= htmlspecialchars($_SESSION['login']) ?></span>
-            <a href="profile.php" class="btn" style="margin-left: 10px;">👤 Личный кабинет</a>
-            <a href="logout.php" class="btn" style="margin-left: 10px;">Выйти</a>
-        <?php else: ?>
-            <button id="login-btn" class="btn">Войти</button>
-        <?php endif; ?>
-    </div>
-
     <div class="calculator" style="max-width:800px; margin:0 auto;">
         <form id="orderForm" class="calculator-form">
-            <!-- Поля (ID с суффиксом _order) -->
             <div class="form-group" id="name-group">
                 <label for="name_order">Ваше имя *</label>
                 <input type="text" id="name_order" required placeholder="Иван Петров">
@@ -674,7 +667,6 @@ if ($route) {
                     <label class="option-checkbox"><input type="checkbox" id="organic_order" value="150"> Сертификат "Био" (+150 ₽)</label>
                 </div>
             </div>
-            <!-- Чекбокс согласия (обязательный) -->
             <div class="form-group full-width">
                 <label class="option-checkbox">
                     <input type="checkbox" id="consent_order">
@@ -713,7 +705,6 @@ if ($route) {
     </div>
 </div>
 
-<!-- Модальное окно с логином/паролем -->
 <div id="creds-modal" class="modal">
     <div class="modal-card">
         <span class="close" id="close-creds">&times;</span>
@@ -724,6 +715,7 @@ if ($route) {
         <button class="btn" id="close-creds-btn">Закрыть</button>
     </div>
 </div>
+
 
 <footer>
      <div class="footer-content">
@@ -825,7 +817,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const organic = organicChk.checked;
             const total = parseInt(totalSpan.innerText);
 
-            // Очистка ошибок
             document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
             document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
