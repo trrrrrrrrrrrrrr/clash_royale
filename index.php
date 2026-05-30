@@ -414,7 +414,7 @@ if (isset($_SESSION['user_id'])) {
             <li><a href="#products"><i class="fas fa-carrot"></i> Урожай</a></li>
             
             <li><a href="#gallery"><i class="fas fa-images"></i> Галерея</a></li>
-            <li><a href="#order-form"><i class="fas fa-address-book"></i> Заказать продукты</a></li>
+            <li><a href="#order-form"><i class="fas fa-shopping-cart"></i> Заказать продукты</a></li>
         </ul>
 
           <div class="auth-nav">
@@ -796,7 +796,7 @@ if (isset($_SESSION['user_id'])) {
                 <li><a href="#">Главная</a></li>
                 <li><a href="#products">Урожай</a></li>
                 <li><a href="#gallery">Галерея</a></li>
-                <li><a href="#order-form">Контакты</a></li>
+                <li><a href="#order-form">Заказать продукты</a></li>
             </ul>
             <div class="quote-section">
                 <p class="inspiration-quote">
