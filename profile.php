@@ -10,15 +10,17 @@ if (!isset($_SESSION['user_id'])) {
 $pdo = getDB();
 $userId = $_SESSION['user_id'];
 
-// Получение всех заказов пользователя
+// Заказы пользователя
 $stmt = $pdo->prepare("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC");
 $stmt->execute([$userId]);
 $orders = $stmt->fetchAll();
 
-// Получение данных пользователя
+// Данные пользователя
 $stmtUser = $pdo->prepare("SELECT name, phone, email, login FROM users WHERE id = ?");
 $stmtUser->execute([$userId]);
 $user = $stmtUser->fetch();
+
+$updated = isset($_GET['updated']);
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -26,6 +28,7 @@ $user = $stmtUser->fetch();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Личный кабинет | Клеш Рояль</title>
+    <link rel="icon" href="https://img.icons8.com/color/96/000000/crab.png" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -72,13 +75,6 @@ $user = $stmtUser->fetch();
         .cancel-btn {
             background: #f44336;
         }
-        .edit-btn:hover {
-            background: #F57C00;
-        }
-        .cancel-btn:hover {
-            background: #d32f2f;
-        }
-        /* Модальное окно */
         .modal {
             position: fixed;
             top: 0;
@@ -116,9 +112,6 @@ $user = $stmtUser->fetch();
             cursor: pointer;
             color: #888;
         }
-        .modal-card .close:hover {
-            color: #f44336;
-        }
         .form-group {
             margin-bottom: 20px;
         }
@@ -149,21 +142,10 @@ $user = $stmtUser->fetch();
             border-radius: 40px;
             cursor: pointer;
             font-weight: 600;
-            transition: 0.2s;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-        .back-link {
-            margin-top: 20px;
-            text-align: center;
         }
         .logout-btn {
             background: #f44336;
             margin-left: 10px;
-        }
-        .logout-btn:hover {
-            background: #d32f2f;
         }
         .toggle-group {
             display: flex;
@@ -176,7 +158,6 @@ $user = $stmtUser->fetch();
             padding: 8px 20px;
             border-radius: 40px;
             cursor: pointer;
-            font-weight: normal;
             transition: 0.2s;
         }
         .toggle-btn.active {
@@ -190,11 +171,21 @@ $user = $stmtUser->fetch();
             gap: 20px;
             margin-top: 20px;
         }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
 <div class="profile-container">
     <h1>👤 Личный кабинет</h1>
+    <?php if ($updated): ?>
+        <div class="success-message">✅ Заказ успешно обновлён!</div>
+    <?php endif; ?>
     <div class="user-info">
         <p><strong>Логин:</strong> <?= htmlspecialchars($user['login']) ?></p>
         <p><strong>Имя:</strong> <?= htmlspecialchars($user['name']) ?></p>
@@ -213,27 +204,19 @@ $user = $stmtUser->fetch();
         <div style="overflow-x: auto;">
             <table class="orders-table">
                 <thead>
-                    <tr>
-                        <th>ID</th><th>Товар</th><th>Кол-во</th><th>Доставка</th><th>Упаковка</th><th>Био</th><th>Сумма</th><th>Статус</th><th>Действия</th>
-                    </tr>
+                    <tr><th>ID</th><th>Товар</th><th>Кол-во</th><th>Доставка</th><th>Упаковка</th><th>Био</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr>
                 </thead>
                 <tbody>
                     <?php foreach ($orders as $order):
                         $productName = match($order['product_type']) {
-                            'vegetables' => 'Овощи',
-                            'fruits' => 'Фрукты',
-                            'milk' => 'Молочные продукты',
-                            'honey' => 'Мёд',
-                            'cheese' => 'Сыр',
-                            default => $order['product_type']
+                            'vegetables' => 'Овощи', 'fruits' => 'Фрукты', 'milk' => 'Молочные продукты',
+                            'honey' => 'Мёд', 'cheese' => 'Сыр', default => $order['product_type']
                         };
                         $statusName = match($order['status']) {
-                            'new' => 'Новый',
-                            'processed' => 'В обработке',
-                            'completed' => 'Выполнен',
-                            'cancelled' => 'Отменён',
-                            default => $order['status']
+                            'new' => 'Новый', 'processed' => 'В обработке',
+                            'completed' => 'Выполнен', 'cancelled' => 'Отменён', default => $order['status']
                         };
+                        $isNew = $order['status'] === 'new';
                     ?>
                     <tr>
                         <td><?= $order['id'] ?></td>
@@ -245,9 +228,11 @@ $user = $stmtUser->fetch();
                         <td><?= $order['total_price'] ?> ₽</td>
                         <td><?= $statusName ?></td>
                         <td>
-                            <button class="edit-btn" data-id="<?= $order['id'] ?>">✏️ Редактировать</button>
-                            <?php if ($order['status'] === 'new'): ?>
-                                <button class="cancel-btn" data-id="<?= $order['id'] ?>">❌ Отменить</button>
+                            <?php if ($isNew): ?>
+                                <button class="edit-btn" data-id="<?= $order['id'] ?>"> Редактировать</button>
+                                <button class="cancel-btn" data-id="<?= $order['id'] ?>"> Отменить</button>
+                            <?php else: ?>
+                                —
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -258,28 +243,28 @@ $user = $stmtUser->fetch();
     <?php endif; ?>
 </div>
 
-<!-- Модальное окно редактирования заказа -->
+<!-- Модалка редактирования -->
 <div id="edit-modal" class="modal">
     <div class="modal-card">
         <span class="close" id="close-edit">&times;</span>
         <h3>Редактирование заказа</h3>
-        <form id="editForm">
-            <input type="hidden" id="edit-order-id">
+        <form id="editForm" method="post" action="update_order.php">
+            <input type="hidden" name="order_id" id="edit-order-id">
             <div class="form-group">
                 <label>Продукт</label>
-                <select id="edit-product"></select>
+                <select name="product" id="edit-product"></select>
             </div>
             <div class="form-group">
                 <label>Количество</label>
-                <input type="number" id="edit-quantity" min="1" max="100" required>
+                <input type="number" name="quantity" id="edit-quantity" min="1" max="100" required>
             </div>
             <div class="form-group">
                 <label>Доставка</label>
-                <select id="edit-delivery"></select>
+                <select name="delivery" id="edit-delivery"></select>
             </div>
             <div class="form-group">
                 <label>Пожелания</label>
-                <textarea id="edit-message" rows="3"></textarea>
+                <textarea name="message" id="edit-message" rows="3"></textarea>
             </div>
             <div class="form-group">
                 <label>Подарочная упаковка (+200 ₽)</label>
@@ -287,6 +272,7 @@ $user = $stmtUser->fetch();
                     <button type="button" class="toggle-btn" data-opt="gift" data-value="1">Вкл</button>
                     <button type="button" class="toggle-btn" data-opt="gift" data-value="0">Выкл</button>
                 </div>
+                <input type="hidden" name="gift" id="edit-gift-hidden" value="0">
             </div>
             <div class="form-group">
                 <label>Сертификат "Био" (+150 ₽)</label>
@@ -294,14 +280,14 @@ $user = $stmtUser->fetch();
                     <button type="button" class="toggle-btn" data-opt="organic" data-value="1">Вкл</button>
                     <button type="button" class="toggle-btn" data-opt="organic" data-value="0">Выкл</button>
                 </div>
+                <input type="hidden" name="organic" id="edit-organic-hidden" value="0">
             </div>
             <button type="submit" class="btn">Сохранить изменения</button>
-            <div id="edit-message-result" style="margin-top:10px;"></div>
         </form>
     </div>
 </div>
 
-<!-- Модальное окно подтверждения выхода -->
+<!-- Модалка выхода -->
 <div id="confirm-logout-modal" class="modal">
     <div class="modal-card">
         <span class="close" id="close-logout-confirm">&times;</span>
@@ -314,7 +300,7 @@ $user = $stmtUser->fetch();
     </div>
 </div>
 
-<!-- Модальное окно информации (для отмены) -->
+<!-- Модалка информации (для отмены) -->
 <div id="info-modal" class="modal">
     <div class="modal-card">
         <span class="close" id="close-info">&times;</span>
@@ -326,65 +312,50 @@ $user = $stmtUser->fetch();
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ------ Выход с подтверждением ------
+    // Выход
     const logoutBtn = document.getElementById('logout-btn');
     const confirmModal = document.getElementById('confirm-logout-modal');
-    const closeLogoutConfirm = document.getElementById('close-logout-confirm');
+    const closeLogout = document.getElementById('close-logout-confirm');
     const confirmYes = document.getElementById('confirm-logout-yes');
     const confirmNo = document.getElementById('confirm-logout-no');
+    if (logoutBtn) logoutBtn.onclick = () => confirmModal.classList.add('active');
+    function closeConfirm() { confirmModal.classList.remove('active'); }
+    if (closeLogout) closeLogout.onclick = closeConfirm;
+    if (confirmNo) confirmNo.onclick = closeConfirm;
+    if (confirmYes) confirmYes.onclick = () => { window.location.href = 'logout.php'; };
+    window.onclick = (e) => { if (e.target === confirmModal) closeConfirm(); };
 
-    if (logoutBtn) {
-        logoutBtn.onclick = () => confirmModal.classList.add('active');
-    }
-    function closeConfirmModal() { confirmModal.classList.remove('active'); }
-    if (closeLogoutConfirm) closeLogoutConfirm.onclick = closeConfirmModal;
-    if (confirmNo) confirmNo.onclick = closeConfirmModal;
-    if (confirmYes) {
-        confirmYes.onclick = () => { window.location.href = 'logout.php'; };
-    }
-    window.onclick = (e) => { if (e.target === confirmModal) closeConfirmModal(); };
-
-    // ------ Отмена заказа ------
+    // Инфо-модалка
     const infoModal = document.getElementById('info-modal');
-    const infoMessage = document.getElementById('info-message-text');
+    const infoMsg = document.getElementById('info-message-text');
     const closeInfo = document.getElementById('close-info');
     const infoOk = document.getElementById('info-ok');
-    function showInfoMessage(msg) {
-        infoMessage.innerText = msg;
-        infoModal.classList.add('active');
-    }
+    function showInfo(msg) { infoMsg.innerText = msg; infoModal.classList.add('active'); }
     function closeInfoModal() { infoModal.classList.remove('active'); }
     if (closeInfo) closeInfo.onclick = closeInfoModal;
     if (infoOk) infoOk.onclick = closeInfoModal;
     window.onclick = (e) => { if (e.target === infoModal) closeInfoModal(); };
 
+    // Отмена заказа (через API)
     document.querySelectorAll('.cancel-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', async () => {
             const orderId = btn.dataset.id;
             try {
-                const res = await fetch(`index.php?route=cancel&id=${orderId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                const res = await fetch(`index.php?route=cancel&id=${orderId}`, { method: 'POST' });
                 const data = await res.json();
                 if (res.ok && data.status === 'cancelled') {
-                    showInfoMessage('Заказ отменён. Страница будет обновлена.');
+                    showInfo('Заказ отменён. Страница будет обновлена.');
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showInfoMessage(data.error || 'Не удалось отменить заказ');
+                    showInfo(data.error || 'Не удалось отменить заказ');
                 }
-            } catch(err) {
-                showInfoMessage('Ошибка сети');
-            }
+            } catch(err) { showInfo('Ошибка сети'); }
         });
     });
 
-    // ------ Редактирование заказа ------
+    // Редактирование: загрузка данных
     const editModal = document.getElementById('edit-modal');
     const closeEdit = document.getElementById('close-edit');
-    const editForm = document.getElementById('editForm');
-    const editMessageResult = document.getElementById('edit-message-result');
-
     if (closeEdit) closeEdit.onclick = () => editModal.classList.remove('active');
     window.onclick = (e) => { if (e.target === editModal) editModal.classList.remove('active'); };
 
@@ -399,18 +370,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const productSelect = document.getElementById('edit-product');
                 const products = [
-                    {value:'vegetables', label:'Овощи (150 ₽/кг)', price:150},
-                    {value:'fruits', label:'Фрукты (300 ₽/кг)', price:300},
-                    {value:'milk', label:'Молочные продукты (200 ₽/л)', price:200},
-                    {value:'honey', label:'Мёд (400 ₽/бут)', price:400},
-                    {value:'cheese', label:'Сыр (500 ₽/кг)', price:500}
+                    {value:'vegetables', label:'Овощи (150 ₽/кг)'},
+                    {value:'fruits', label:'Фрукты (300 ₽/кг)'},
+                    {value:'milk', label:'Молочные продукты (200 ₽/л)'},
+                    {value:'honey', label:'Мёд (400 ₽/бут)'},
+                    {value:'cheese', label:'Сыр (500 ₽/кг)'}
                 ];
                 productSelect.innerHTML = '';
                 products.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.value;
                     opt.textContent = p.label;
-                    opt.dataset.price = p.price;
                     if (p.value === data.product_type) opt.selected = true;
                     productSelect.appendChild(opt);
                 });
@@ -425,81 +395,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const giftBtns = document.querySelectorAll('[data-opt="gift"]');
                 const organicBtns = document.querySelectorAll('[data-opt="organic"]');
+                const giftHidden = document.getElementById('edit-gift-hidden');
+                const organicHidden = document.getElementById('edit-organic-hidden');
+
+                function setActive(btns, val) {
+                    btns.forEach(b => {
+                        b.classList.remove('active');
+                        if (parseInt(b.dataset.value) === val) b.classList.add('active');
+                    });
+                }
+                setActive(giftBtns, data.gift_wrap);
+                setActive(organicBtns, data.organic_cert);
+                giftHidden.value = data.gift_wrap;
+                organicHidden.value = data.organic_cert;
+
                 giftBtns.forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.dataset.value == (data.gift_wrap ? '1' : '0')) btn.classList.add('active');
+                    btn.onclick = () => {
+                        giftBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        giftHidden.value = btn.dataset.value;
+                    };
                 });
                 organicBtns.forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.dataset.value == (data.organic_cert ? '1' : '0')) btn.classList.add('active');
+                    btn.onclick = () => {
+                        organicBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        organicHidden.value = btn.dataset.value;
+                    };
                 });
 
                 editModal.classList.add('active');
             } else {
-                alert('Не удалось загрузить заказ');
+                showInfo('Не удалось загрузить заказ');
             }
-        } catch(e) {
-            alert('Ошибка загрузки заказа');
-            console.error(e);
-        }
+        } catch(e) { showInfo('Ошибка загрузки заказа'); }
     }
 
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', () => loadOrderForEdit(btn.dataset.id));
     });
-
-    const optionBtns = document.querySelectorAll('[data-opt]');
-    optionBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const opt = btn.dataset.opt;
-            const group = document.querySelectorAll(`[data-opt="${opt}"]`);
-            group.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        });
-    });
-
-    if (editForm) {
-        editForm.onsubmit = async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('edit-order-id').value;
-            const product = document.getElementById('edit-product').value;
-            const quantity = parseInt(document.getElementById('edit-quantity').value);
-            const delivery = parseInt(document.getElementById('edit-delivery').value);
-            const message = document.getElementById('edit-message').value;
-
-            const giftActive = document.querySelector('[data-opt="gift"].active');
-            const organicActive = document.querySelector('[data-opt="organic"].active');
-            const gift = giftActive && giftActive.dataset.value === '1' ? 1 : 0;
-            const organic = organicActive && organicActive.dataset.value === '1' ? 1 : 0;
-
-            const name = <?= json_encode($user['name']) ?>;
-            const phone = <?= json_encode($user['phone']) ?>;
-            const email = <?= json_encode($user['email']) ?>;
-            const consent = true;
-
-            const priceMap = {vegetables:150, fruits:300, milk:200, honey:400, cheese:500};
-            const basePrice = priceMap[product];
-            const total = (basePrice * quantity) + delivery + (gift?200:0) + (organic?150:0);
-
-            const data = { name, phone, email, message, consent, product, quantity, delivery, gift, organic, total, _method:'PUT' };
-            try {
-                const res = await fetch(`index.php?route=order&id=${id}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await res.json();
-                if (res.ok && result.status === 'updated') {
-                    editMessageResult.innerText = '✅ Заказ обновлён!';
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    editMessageResult.innerText = '❌ Ошибка: ' + (result.error || 'неизвестная');
-                }
-            } catch(err) {
-                editMessageResult.innerText = '❌ Ошибка сети';
-            }
-        };
-    }
 });
 </script>
 </body>
