@@ -657,7 +657,7 @@ if (isset($_SESSION['user_id'])) {
         <p>Заполните форму, и мы доставим продукты</p>
        <?php if (isset($_SESSION['user_id'])): ?>
     <div style="text-align: center; margin-top: 15px;">
-        <a href="profile.php" class="btn">📋 Смотреть все свои заказы</a>
+        <a href="profile.php" class="btn"> Смотреть все свои заказы</a>
     </div>
 <?php endif; ?>
     </div>
@@ -724,13 +724,7 @@ if (isset($_SESSION['user_id'])) {
                 </div>
             </div>
 
-            <div class="form-group full-width">
-                <label class="option-checkbox">
-                    <input type="checkbox" id="consent_order">
-                    <span>Я даю согласие на обработку персональных данных *</span>
-                </label>
-                <div class="field-error" id="consent-error"></div>
-            </div>
+            
 
             <div class="form-group" id="message-group">
                 <label for="message_order">Пожелания к заказу</label>
@@ -741,6 +735,14 @@ if (isset($_SESSION['user_id'])) {
             <div class="calculator-result">
                 <h3>Итоговая стоимость</h3>
                 <div class="total-price" id="total_price_order">0 ₽</div>
+            </div>
+            <div class="form-group full-width">
+                <label class="option-checkbox">
+                    <span>Я даю согласие на обработку персональных данных *</span>
+                    <input type="checkbox" id="consent_order" required >
+                    
+                </label>
+                <div class="field-error" id="consent-error"></div>
             </div>
             <button type="submit" class="btn" id="submit-order">Оформить заказ</button>
             <div id="form-message" class="form-message"></div>
