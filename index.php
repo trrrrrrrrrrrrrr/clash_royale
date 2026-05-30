@@ -655,11 +655,11 @@ if (isset($_SESSION['user_id'])) {
     <div class="section-title">
         <h2><?= isset($_SESSION['user_id']) ? 'Оформить новый заказ' : 'Оформить заказ' ?></h2>
         <p>Заполните форму, и мы доставим продукты</p>
-        <?php if (isset($_SESSION['user_id'])): ?>
-            <div style="margin-top: 10px;">
-                <a href="profile.php" class="btn">📋 Смотреть все свои заказы</a>
-            </div>
-        <?php endif; ?>
+       <?php if (isset($_SESSION['user_id'])): ?>
+    <div style="text-align: center; margin-top: 15px;">
+        <a href="profile.php" class="btn">📋 Смотреть все свои заказы</a>
+    </div>
+<?php endif; ?>
     </div>
 
     <div class="calculator" style="max-width:800px; margin:0 auto;">
