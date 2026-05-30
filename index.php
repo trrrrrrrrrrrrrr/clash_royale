@@ -195,7 +195,7 @@ if ($route) {
             echo json_encode(['status' => 'ok']);
         } else {
             http_response_code(401);
-            echo json_encode(['error' => 'Invalid credentials']);
+            echo json_encode(['error' => 'Не правильный логин или пароль!']);
         }
         exit;
     }
