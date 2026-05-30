@@ -451,7 +451,7 @@ if (isset($_SESSION['user_id'])) {
             <div class="model-card">
                 <div class="model-img">
                     <!-- Изображение будет меняться при выборе цвета через data-color на кнопках ниже -->
-                    <img src="https://avatars.mds.yandex.net/i?id=262fce599ffaab67a84dcbdb7d5d8ba920b6efd7-4080301-images-thumbs&n=13" alt="Овощи" id="product-1-img">
+                    <img src="https://vesti-k.ru/i/80/80a6d494f81fd30c3c681227854f551b.jpg" alt="Овощи" id="product-1-img">
                 </div>
                 <div class="model-info">
                     <h3>Овощной батальон</h3>
@@ -474,7 +474,7 @@ if (isset($_SESSION['user_id'])) {
             <!-- Карточка товара 2 (аналогичная структура) -->
             <div class="model-card">
                 <div class="model-img">
-                    <img src="https://static.mk.ru/upload/entities/2024/11/25/09/articles/facebookPicture/72/b3/63/73/11b4f3ffd24d2a3e9764a41f1cfd6640.jpg" alt="Фрукты" id="product-2-img">
+                    <img src="https://gov.khogov.ru/wp-content/uploads/sites/4/2025/05/photo_2025-05-20_17-49-38-1024x576.jpg" alt="Фрукты" id="product-2-img">
                 </div>
                 <div class="model-info">
                     <h3>Фруктовая аристократия</h3>
@@ -494,7 +494,7 @@ if (isset($_SESSION['user_id'])) {
             <!-- Карточка товара 3 (аналогичная структура) -->
             <div class="model-card">
                 <div class="model-img">
-                    <img src="https://edaprof.ru/image/catalog/statii/tekhnologiya-proizvodstva-moloka-i-molochnoj-produkcii/moloko.jpg" alt="Молочное" id="product-3-img">
+                    <img src="https://image.made-in-china.com/2f0j00jpfMFDmyMeoU/Custom-Logo-750ml-Round-Glass-Milk-Juice-Bottle-with-Metal-Lids.webp" alt="Молочное" id="product-3-img">
                 </div>
                 <div class="model-info">
                     <h3>Молочные рыцари</h3>
