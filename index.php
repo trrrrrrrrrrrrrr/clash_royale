@@ -143,7 +143,7 @@ if ($route) {
         exit;
     }
 
-    // Получение списка заказов
+     // Получение списка заказов
     if ($route === 'orders' && $method === 'GET') {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
@@ -195,7 +195,26 @@ if ($route) {
             echo json_encode(['status' => 'ok']);
         } else {
             http_response_code(401);
-            echo json_encode(['error' => 'Не правильный логин или пароль!']);
+            echo json_encode(['error' => 'Invalid credentials']);
+        }
+        exit;
+    }
+
+    // Получение профиля (для авторизованного)
+    if ($route === 'profile' && $method === 'GET') {
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+        $stmt = $pdo->prepare("SELECT name, phone, email FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch();
+        if ($user) {
+            echo json_encode($user);
+        } else {
+            http_response_code(404);
+            echo json_encode(['error' => 'User not found']);
         }
         exit;
     }
@@ -203,6 +222,15 @@ if ($route) {
     http_response_code(404);
     echo json_encode(['error' => 'Route not found']);
     exit;
+}
+
+// Получаем данные пользователя, если авторизован, для подстановки в форму
+$user_data = null;
+if (isset($_SESSION['user_id'])) {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT name, phone, email FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $user_data = $stmt->fetch();
 }
 ?>
 <!DOCTYPE html>
@@ -353,7 +381,13 @@ if ($route) {
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-
+        .btn-link {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            text-decoration: underline;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -618,24 +652,43 @@ if ($route) {
 
     
 <section id="order-form" class="section">
-    <div class="section-title"><h2>Оформить заказ</h2><p>Заполните форму, и мы доставим продукты</p></div>
+    <div class="section-title">
+        <h2><?= isset($_SESSION['user_id']) ? 'Оформить новый заказ' : 'Оформить заказ' ?></h2>
+        <p>Заполните форму, и мы доставим продукты</p>
+        <?php if (isset($_SESSION['user_id'])): ?>
+            <div style="margin-top: 10px;">
+                <a href="profile.php" class="btn">📋 Смотреть все свои заказы</a>
+            </div>
+        <?php endif; ?>
+    </div>
+
     <div class="calculator" style="max-width:800px; margin:0 auto;">
         <form id="orderForm" class="calculator-form">
-            <div class="form-group" id="name-group">
-                <label for="name_order">Ваше имя *</label>
-                <input type="text" id="name_order" required placeholder="Иван Петров">
-                <div class="field-error"></div>
-            </div>
-            <div class="form-group" id="phone-group">
-                <label for="phone_order">Телефон *</label>
-                <input type="tel" id="phone_order" required placeholder="+7 (123) 456-78-90">
-                <div class="field-error"></div>
-            </div>
-            <div class="form-group" id="email-group">
-                <label for="email_order">Email *</label>
-                <input type="email" id="email_order" required placeholder="example@mail.ru">
-                <div class="field-error"></div>
-            </div>
+            <?php if (!isset($_SESSION['user_id'])): ?>
+                <!-- Показываем поля для неавторизованных -->
+                <div class="form-group" id="name-group">
+                    <label for="name_order">Ваше имя *</label>
+                    <input type="text" id="name_order" required placeholder="Иван Петров">
+                    <div class="field-error"></div>
+                </div>
+                <div class="form-group" id="phone-group">
+                    <label for="phone_order">Телефон *</label>
+                    <input type="tel" id="phone_order" required placeholder="+7 (123) 456-78-90">
+                    <div class="field-error"></div>
+                </div>
+                <div class="form-group" id="email-group">
+                    <label for="email_order">Email *</label>
+                    <input type="email" id="email_order" required placeholder="example@mail.ru">
+                    <div class="field-error"></div>
+                </div>
+            <?php else: ?>
+                <!-- Скрытые поля для авторизованных (значения из БД) -->
+                <input type="hidden" id="name_order" value="<?= htmlspecialchars($user_data['name'] ?? '') ?>">
+                <input type="hidden" id="phone_order" value="<?= htmlspecialchars($user_data['phone'] ?? '') ?>">
+                <input type="hidden" id="email_order" value="<?= htmlspecialchars($user_data['email'] ?? '') ?>">
+                <div class="info-message">Вы авторизованы как <strong><?= htmlspecialchars($_SESSION['login']) ?></strong>. Ваши контактные данные будут использованы автоматически.</div>
+            <?php endif; ?>
+
             <div class="form-group" id="product-group">
                 <label for="product_order">Продукт *</label>
                 <select id="product_order">
@@ -647,11 +700,13 @@ if ($route) {
                 </select>
                 <div class="field-error"></div>
             </div>
-           <div class="form-group" id="quantity-group">
+
+            <div class="form-group" id="quantity-group">
                 <label for="quantity_order">Количество (1–100):</label>
                 <input type="number" id="quantity_order" min="1" max="100" value="1" step="1" required>
                 <div class="field-error"></div>
             </div>
+
             <div class="form-group" id="delivery-group">
                 <label for="delivery_order">Доставка</label>
                 <select id="delivery_order">
@@ -660,6 +715,7 @@ if ($route) {
                     <option value="500">За город (500 ₽)</option>
                 </select>
             </div>
+
             <div class="form-group full-width">
                 <label>Дополнительно</label>
                 <div class="options-group">
@@ -667,18 +723,21 @@ if ($route) {
                     <label class="option-checkbox"><input type="checkbox" id="organic_order" value="150"> Сертификат "Био" (+150 ₽)</label>
                 </div>
             </div>
+
             <div class="form-group full-width">
                 <label class="option-checkbox">
-                    <input type="checkbox" id="consent_order" required >
-                    <span >Я даю согласие на обработку персональных данных *</span>
+                    <input type="checkbox" id="consent_order">
+                    <span>Я даю согласие на обработку персональных данных *</span>
                 </label>
                 <div class="field-error" id="consent-error"></div>
             </div>
+
             <div class="form-group" id="message-group">
                 <label for="message_order">Пожелания к заказу</label>
-                <textarea id="message_order" rows="3" placeholder="Например: доставка к 18:00"></textarea>
+                <textarea id="message_order" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
                 <div class="field-error"></div>
             </div>
+
             <div class="calculator-result">
                 <h3>Итоговая стоимость</h3>
                 <div class="total-price" id="total_price_order">0 ₽</div>
@@ -751,24 +810,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const organicChk = document.getElementById('organic_order');
     const totalSpan = document.getElementById('total_price_order');
 
-   function calcTotal() {
-    if (!productSelect || !quantityInput || !deliverySelect || !totalSpan) return;
-    let price = parseInt(productSelect.options[productSelect.selectedIndex].dataset.price);
-    let qty = parseInt(quantityInput.value);
-    if (isNaN(qty) || qty < 1) qty = 1;
-    let delivery = parseInt(deliverySelect.value);
-    let extra = (giftChk.checked ? 200 : 0) + (organicChk.checked ? 150 : 0);
-    let total = (price * qty) + delivery + extra;
-    totalSpan.innerText = total + ' ₽';
-}
-   if (productSelect) {
-    productSelect.addEventListener('change', calcTotal);
-    quantityInput.addEventListener('input', calcTotal);
-    deliverySelect.addEventListener('change', calcTotal);
-    if (giftChk) giftChk.addEventListener('change', calcTotal);
-    if (organicChk) organicChk.addEventListener('change', calcTotal);
-    calcTotal();
-}
+    function calcTotal() {
+        if (!productSelect || !quantityInput || !deliverySelect || !totalSpan) return;
+        let price = parseInt(productSelect.options[productSelect.selectedIndex].dataset.price);
+        let qty = parseInt(quantityInput.value);
+        if (isNaN(qty) || qty < 1) qty = 1;
+        let delivery = parseInt(deliverySelect.value);
+        let extra = (giftChk.checked ? 200 : 0) + (organicChk.checked ? 150 : 0);
+        let total = (price * qty) + delivery + extra;
+        totalSpan.innerText = total + ' ₽';
+    }
+    if (productSelect) {
+        productSelect.addEventListener('change', calcTotal);
+        quantityInput.addEventListener('input', calcTotal);
+        deliverySelect.addEventListener('change', calcTotal);
+        if (giftChk) giftChk.addEventListener('change', calcTotal);
+        if (organicChk) organicChk.addEventListener('change', calcTotal);
+        calcTotal();
+    }
 
     // Авторизация
     const loginBtn = document.getElementById('login-btn');
@@ -804,6 +863,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (orderForm) {
         orderForm.onsubmit = async (e) => {
             e.preventDefault();
+            // Получаем данные
             const name = document.getElementById('name_order').value.trim();
             const phone = document.getElementById('phone_order').value.trim();
             const email = document.getElementById('email_order').value.trim();
@@ -811,11 +871,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const consent = document.getElementById('consent_order').checked;
             const product = productSelect.value;
             const quantity = parseInt(quantityInput.value);
-            const delivery = deliverySelect.value;
+            const delivery = parseInt(deliverySelect.value);
             const gift = giftChk.checked;
             const organic = organicChk.checked;
             const total = parseInt(totalSpan.innerText);
 
+            // Очистка ошибок
             document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
             document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
@@ -838,6 +899,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     orderForm.reset();
                     quantityInput.value = 1;
                     calcTotal();
+                    // Если пользователь неавторизован – после создания он становится авторизованным, перезагрузим страницу
+                    if (!<?= json_encode(isset($_SESSION['user_id'])) ?>) {
+                        setTimeout(() => location.reload(), 2000);
+                    }
                 } else {
                     if (result.errors) {
                         for (const [field, err] of Object.entries(result.errors)) {
