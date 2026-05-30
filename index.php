@@ -225,116 +225,135 @@ if ($route) {
             font-size: 0.9rem;
             margin-left: 10px;
         }
-        .user-info {
-            background: rgba(255,255,255,0.9);
-            border-radius: 30px;
-            padding: 5px 15px;
-            display: inline-block;
-            color: #333;
-        }
-        .field-error {
-            color: #f44336;
-            font-size: 0.8rem;
-            margin-top: 5px;
-        }
-        .form-group.error input, .form-group.error textarea {
-            border-color: #f44336;
-        }
-         .orders-list { margin-top: 30px; background: white; border-radius: 16px; padding: 20px; }
-        .order-item { border-bottom: 1px solid #eee; padding: 15px; cursor: pointer; }
-        .order-item:hover { background: #f9f9f9; }
+     body .modal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0,0,0,0.8) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 10000 !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        transition: all 0.3s ease !important;
+        transform: none !important;           /* отключаем старую трансформацию */
+    }
+    body .modal.active {
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    body .modal .modal-card {
+        background: white !important;
+        border-radius: 28px !important;
+        padding: 30px !important;
+        max-width: 450px !important;
+        width: 90% !important;
+        position: relative !important;
+        text-align: center !important;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
+        transform: scale(0.9) !important;
+        transition: transform 0.2s !important;
+        margin: auto !important;
+    }
+    body .modal.active .modal-card {
+        transform: scale(1) !important;
+    }
+    body .modal .close {
+        position: absolute !important;
+        top: 15px !important;
+        right: 20px !important;
+        font-size: 28px !important;
+        cursor: pointer !important;
+        color: #888 !important;
+        background: none !important;
+        border: none !important;
+        line-height: 1 !important;
+    }
+    body .modal .close:hover {
+        color: #f44336 !important;
+    }
 
-         .calculator-form input, .calculator-form select, .calculator-form textarea {
-            width: 100%;
-            padding: 14px;
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            font-family: 'Nunito', sans-serif;
-            font-size: 1rem;
-            transition: all 0.3s;
-            background-color: white;
-        }
-        .calculator-form input:focus, .calculator-form select:focus, .calculator-form textarea:focus {
-            border-color: var(--primary-color);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(76,175,80,0.2);
-        }
-        .calculator-form label {
-            font-weight: 600;
-            margin-bottom: 6px;
-            display: block;
-            color: var(--dark-color);
-        }
-        .options-group {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-        .option-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #f9f9f9;
-            padding: 8px 15px;
-            border-radius: 40px;
-            cursor: pointer;
-        }
-        .calculator-result {
-            background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
-            border-radius: 16px;
-        }
-
-         .modal {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0,0,0,0.8) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    z-index: 10000 !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    transition: all 0.3s ease !important;
-    transform: none !important; /* отключаем старую трансформацию */
-}
-.modal.active {
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-.modal-card {
-    background: white !important;
-    border-radius: 28px !important;
-    padding: 30px !important;
-    max-width: 450px !important;
-    width: 90% !important;
-    position: relative !important;
-    text-align: center !important;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3) !important;
-    transform: scale(0.9) !important;
-    transition: transform 0.2s !important;
-}
-.modal.active .modal-card {
-    transform: scale(1) !important;
-}
-.modal-card .close {
-    position: absolute !important;
-    top: 15px !important;
-    right: 20px !important;
-    font-size: 28px !important;
-    cursor: pointer !important;
-    color: #888 !important;
-    background: none !important;
-    border: none !important;
-    line-height: 1 !important;
-}
-.modal-card .close:hover {
-    color: #f44336 !important;
-}
-
+    /* ========== ОСТАЛЬНЫЕ СТИЛИ ДЛЯ ФОРМЫ И КАЛЬКУЛЯТОРА ========== */
+    .field-error {
+        color: #f44336;
+        font-size: 0.8rem;
+        margin-top: 5px;
+    }
+    .form-group.error input,
+    .form-group.error select,
+    .form-group.error textarea {
+        border-color: #f44336;
+    }
+    .option-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #f9f9f9;
+        padding: 8px 15px;
+        border-radius: 40px;
+        cursor: pointer;
+    }
+    .calculator-form input,
+    .calculator-form select,
+    .calculator-form textarea {
+        width: 100%;
+        padding: 14px;
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        font-family: 'Nunito', sans-serif;
+        font-size: 1rem;
+        transition: all 0.3s;
+        background-color: white;
+    }
+    .calculator-form input:focus,
+    .calculator-form select:focus,
+    .calculator-form textarea:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(76,175,80,0.2);
+    }
+    .calculator-result {
+        background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+        border-radius: 16px;
+        text-align: center;
+        padding: 25px;
+        margin-top: 20px;
+    }
+    .total-price {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #4CAF50;
+    }
+    .form-message {
+        margin-top: 15px;
+        padding: 12px;
+        border-radius: 10px;
+        text-align: center;
+        font-weight: 600;
+        display: none;
+    }
+    .form-message.success {
+        display: block;
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .form-message.error {
+        display: block;
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    .user-info {
+        background: rgba(255,255,255,0.9);
+        border-radius: 30px;
+        padding: 5px 15px;
+        display: inline-block;
+        color: #333;
+    }
 
          .profile-link {
             text-align: center;
