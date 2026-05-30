@@ -239,6 +239,7 @@ if (isset($_SESSION['user_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Клеш Рояль | Весёлая Ферма</title>
+    <link rel="icon" href="https://img.icons8.com/color/96/000000/crab.png" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -736,7 +737,7 @@ if (isset($_SESSION['user_id'])) {
 
             <div class="form-group" id="message-group">
                 <label for="message_order">Пожелания к заказу</label>
-                <textarea id="message_order" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
+                <textarea id="message_order" rows="3"></textarea>
                 <div class="field-error"></div>
             </div>
 
