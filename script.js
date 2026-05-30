@@ -22,10 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <ul>
                 <li><a href="#"><i class="fas fa-home"></i> Главная</a></li>
                 <li><a href="#products"><i class="fas fa-carrot"></i> Урожай</a></li>
-                <li><a href="#calculator"><i class="fas fa-calculator"></i> Калькулятор</a></li>
                 <li><a href="#gallery"><i class="fas fa-images"></i> Галерея</a></li>
                 <li><a href="#contact"><i class="fas fa-address-book"></i> Контакты</a></li>
-                <li><a href="#" id="mobile-contact-btn" class="btn"><i class="fas fa-comment-dots"></i> Связь с нами</a></li>
             </ul>
         `;
         

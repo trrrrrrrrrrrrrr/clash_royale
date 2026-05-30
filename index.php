@@ -232,40 +232,6 @@ if ($route) {
             display: inline-block;
             color: #333;
         }
-        .credentials-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            visibility: hidden;
-            opacity: 0;
-            transition: 0.3s;
-        }
-        .credentials-modal.active {
-            visibility: visible;
-            opacity: 1;
-        }
-        .credentials-card {
-            background: white;
-            border-radius: 24px;
-            padding: 30px;
-            max-width: 400px;
-            text-align: center;
-            position: relative;
-        }
-        .credentials-card .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            cursor: pointer;
-        }
         .field-error {
             color: #f44336;
             font-size: 0.8rem;
@@ -274,11 +240,6 @@ if ($route) {
         .form-group.error input, .form-group.error textarea {
             border-color: #f44336;
         }
-
-  .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000; visibility: hidden; opacity: 0; transition: 0.3s; }
-        .modal.active { visibility: visible; opacity: 1; }
-        .modal-card { background: white; border-radius: 24px; padding: 30px; max-width: 450px; width: 90%; position: relative; }
-        .modal-card .close { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; }
          .orders-list { margin-top: 30px; background: white; border-radius: 16px; padding: 20px; }
         .order-item { border-bottom: 1px solid #eee; padding: 15px; cursor: pointer; }
         .order-item:hover { background: #f9f9f9; }
@@ -324,20 +285,20 @@ if ($route) {
             border-radius: 16px;
         }
 
-         .modal {
+          .modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 2000;
+            z-index: 10000;
             visibility: hidden;
             opacity: 0;
-            transition: 0.3s;
+            transition: all 0.3s ease;
         }
         .modal.active {
             visibility: visible;
@@ -345,13 +306,18 @@ if ($route) {
         }
         .modal-card {
             background: white;
-            border-radius: 24px;
+            border-radius: 28px;
             padding: 30px;
             max-width: 450px;
             width: 90%;
             position: relative;
-            margin: auto;
             text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            transform: scale(0.9);
+            transition: transform 0.2s;
+        }
+        .modal.active .modal-card {
+            transform: scale(1);
         }
         .modal-card .close {
             position: absolute;
@@ -359,7 +325,16 @@ if ($route) {
             right: 20px;
             font-size: 28px;
             cursor: pointer;
-            color: #666;
+            color: #888;
+        }
+        .modal-card .close:hover {
+            color: #f44336;
+        }
+
+
+         .profile-link {
+            text-align: center;
+            margin-top: 30px;
         }
 
     </style>
@@ -617,10 +592,11 @@ if ($route) {
 <section id="order-form" class="section">
     <div class="section-title"><h2>Оформить заказ</h2><p>Заполните форму, и мы доставим продукты</p></div>
 
-    <div id="auth-status" class="auth-buttons">
+    <div id="auth-status" style="text-align: right; margin-bottom: 20px;">
         <?php if (isset($_SESSION['user_id'])): ?>
             <span class="user-info">Привет, <?= htmlspecialchars($_SESSION['login']) ?></span>
-            <a href="logout.php" class="btn">Выйти</a>
+            <a href="profile.php" class="btn" style="margin-left: 10px;">👤 Личный кабинет</a>
+            <a href="logout.php" class="btn" style="margin-left: 10px;">Выйти</a>
         <?php else: ?>
             <button id="login-btn" class="btn">Войти</button>
         <?php endif; ?>
@@ -628,25 +604,25 @@ if ($route) {
 
     <div class="calculator" style="max-width:800px; margin:0 auto;">
         <form id="orderForm" class="calculator-form">
-            <!-- Поля (все с суффиксом _order) -->
+            <!-- Поля (ID с суффиксом _order) -->
             <div class="form-group" id="name-group">
                 <label for="name_order">Ваше имя *</label>
-                <input type="text" id="name_order" name="name" required placeholder="Иван Петров">
+                <input type="text" id="name_order" required placeholder="Иван Петров">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="phone-group">
                 <label for="phone_order">Телефон *</label>
-                <input type="tel" id="phone_order" name="phone" required placeholder="+7 (123) 456-78-90">
+                <input type="tel" id="phone_order" required placeholder="+7 (123) 456-78-90">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="email-group">
                 <label for="email_order">Email *</label>
-                <input type="email" id="email_order" name="email" required placeholder="example@mail.ru">
+                <input type="email" id="email_order" required placeholder="example@mail.ru">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="product-group">
                 <label for="product_order">Продукт *</label>
-                <select id="product_order" name="product">
+                <select id="product_order">
                     <option value="vegetables" data-price="150">Овощи (150 ₽/кг)</option>
                     <option value="fruits" data-price="300">Фрукты (300 ₽/кг)</option>
                     <option value="milk" data-price="200">Молочные продукты (200 ₽/л)</option>
@@ -675,39 +651,56 @@ if ($route) {
                     <label class="option-checkbox"><input type="checkbox" id="organic_order" value="150"> Сертификат "Био" (+150 ₽)</label>
                 </div>
             </div>
-            <!-- НОВЫЙ чекбокс согласия (в виде красивой кнопки) -->
-           
+            <!-- Чекбокс согласия (обязательный) -->
+            <div class="form-group full-width">
+                <label class="option-checkbox">
+                    <input type="checkbox" id="consent_order">
+                    <span>Я даю согласие на обработку персональных данных *</span>
+                </label>
+                <div class="field-error" id="consent-error"></div>
+            </div>
             <div class="form-group" id="message-group">
                 <label for="message_order">Пожелания к заказу</label>
-                <textarea id="message_order" name="message" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
+                <textarea id="message_order" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
                 <div class="field-error"></div>
             </div>
             <div class="calculator-result">
                 <h3>Итоговая стоимость</h3>
                 <div class="total-price" id="total_price_order">0 ₽</div>
             </div>
-             <div class="form-group full-width">
-                <label class="option-checkbox">
-                    <span>Я согласен на обработку персональных данных *</span>
-                    <input type="checkbox" id="consent_order">
-                    
-                </label>
-                <div class="field-error" id="consent-error"></div>
-            </div>
-
             <button type="submit" class="btn" id="submit-order">Оформить заказ</button>
             <div id="form-message" class="form-message"></div>
         </form>
     </div>
-
-    <?php if (isset($_SESSION['user_id'])): ?>
-    <div class="orders-list" id="orders-container">
-        <h3>Мои заказы</h3>
-        <div id="orders-list">Загрузка...</div>
-    </div>
-    <?php endif; ?>
 </section>
 
+
+
+
+<div id="login-modal" class="modal">
+    <div class="modal-card">
+        <span class="close" id="close-login">&times;</span>
+        <h3>Вход в систему</h3>
+        <form id="loginForm">
+            <div class="form-group"><label>Логин</label><input type="text" id="login-username" required></div>
+            <div class="form-group"><label>Пароль</label><input type="password" id="login-password" required></div>
+            <button type="submit" class="btn">Войти</button>
+            <div id="login-error" style="color:red; margin-top:10px;"></div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно с логином/паролем -->
+<div id="creds-modal" class="modal">
+    <div class="modal-card">
+        <span class="close" id="close-creds">&times;</span>
+        <h3>Ваши данные для входа</h3>
+        <p><strong>Логин:</strong> <span id="new-login"></span></p>
+        <p><strong>Пароль:</strong> <span id="new-password"></span></p>
+        <p>Сохраните их! Вы уже авторизованы.</p>
+        <button class="btn" id="close-creds-btn">Закрыть</button>
+    </div>
+</div>
 
 <footer>
      <div class="footer-content">
@@ -732,32 +725,6 @@ if ($route) {
             <div class="copyright">© 2023 Весёлая Ферма "Клеш Рояль".</div>
         </div>
 </footer>
-
-<div id="login-modal" class="modal">
-    <div class="modal-card">
-        <span class="close" id="close-login">&times;</span>
-        <h3>Вход в систему</h3>
-        <form id="loginForm">
-            <div class="form-group"><label>Логин</label><input type="text" id="login-username" required></div>
-            <div class="form-group"><label>Пароль</label><input type="password" id="login-password" required></div>
-            <button type="submit" class="btn">Войти</button>
-            <div id="login-error" style="color:red; margin-top:10px;"></div>
-        </form>
-    </div>
-</div>
-
-<div id="creds-modal" class="modal">
-    <div class="modal-card">
-        <span class="close" id="close-creds">&times;</span>
-        <h3>Ваши данные для входа</h3>
-        <p><strong>Логин:</strong> <span id="new-login"></span></p>
-        <p><strong>Пароль:</strong> <span id="new-password"></span></p>
-        <p>Сохраните их! Вы уже авторизованы.</p>
-        <button class="btn" id="close-creds-btn">Закрыть</button>
-    </div>
-</div>
-
-
  <script src="script.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -803,6 +770,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const login = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
+            const errorDiv = document.getElementById('login-error');
             try {
                 const res = await fetch('index.php?route=login', {
                     method: 'POST',
@@ -811,97 +779,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const data = await res.json();
                 if (res.ok && data.status === 'ok') location.reload();
-                else document.getElementById('login-error').innerText = data.error || 'Ошибка входа';
-            } catch(err) { document.getElementById('login-error').innerText = 'Ошибка сети'; }
+                else errorDiv.innerText = data.error || 'Ошибка входа';
+            } catch(err) { errorDiv.innerText = 'Ошибка сети'; }
         };
     }
 
-    // Загрузка заказов
-    <?php if (isset($_SESSION['user_id'])): ?>
-    async function loadOrders() {
-        const container = document.getElementById('orders-list');
-        try {
-            const res = await fetch('index.php?route=orders');
-            const orders = await res.json();
-            if (orders.length) {
-                let html = '';
-                orders.forEach(order => {
-                    let productName = '';
-                    if (order.product_type === 'vegetables') productName = 'Овощи';
-                    else if (order.product_type === 'fruits') productName = 'Фрукты';
-                    else if (order.product_type === 'milk') productName = 'Молочное';
-                    else if (order.product_type === 'honey') productName = 'Мёд';
-                    else productName = 'Сыр';
-                    html += `<div class="order-item" data-id="${order.id}">
-                        <strong>Заказ №${order.id}</strong> — ${productName}, ${order.quantity} шт., сумма ${order.total_price} ₽<br>
-                        <small>Статус: ${order.status}</small>
-                    </div>`;
-                });
-                container.innerHTML = html;
-                document.querySelectorAll('.order-item').forEach(el => {
-                    el.addEventListener('click', () => loadOrderForEdit(el.dataset.id));
-                });
-            } else container.innerHTML = '<p>У вас пока нет заказов.</p>';
-        } catch(e) { container.innerHTML = '<p>Ошибка загрузки</p>'; }
-    }
-
-    async function loadOrderForEdit(id) {
-        const res = await fetch(`index.php?route=order&id=${id}`);
-        const data = await res.json();
-        if (data.id) {
-            document.getElementById('name_order').value = data.name || '';
-            document.getElementById('phone_order').value = data.phone || '';
-            document.getElementById('email_order').value = data.email || '';
-            document.getElementById('message_order').value = data.message || '';
-            document.getElementById('consent_order').checked = data.consent == 1;
-            for (let i=0; i<productSelect.options.length; i++) {
-                if (productSelect.options[i].value === data.product_type) {
-                    productSelect.selectedIndex = i;
-                    break;
-                }
-            }
-            quantitySlider.value = data.quantity;
-            deliverySelect.value = data.delivery_cost;
-            giftChk.checked = data.gift_wrap == 1;
-            organicChk.checked = data.organic_cert == 1;
-            calcTotal();
-            const submitBtn = document.getElementById('submit-order');
-            submitBtn.innerText = 'Обновить заказ';
-            const originalSubmit = orderForm.onsubmit;
-            orderForm.onsubmit = async (e) => {
-                e.preventDefault();
-                const formData = {
-                    name: document.getElementById('name_order').value.trim(),
-                    phone: document.getElementById('phone_order').value.trim(),
-                    email: document.getElementById('email_order').value.trim(),
-                    message: document.getElementById('message_order').value.trim(),
-                    consent: document.getElementById('consent_order').checked,
-                    product: productSelect.value,
-                    quantity: quantitySlider.value,
-                    delivery: deliverySelect.value,
-                    gift: giftChk.checked,
-                    organic: organicChk.checked,
-                    total: parseInt(totalSpan.innerText)
-                };
-                const res = await fetch(`index.php?route=order&id=${id}&_method=PUT`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
-                const result = await res.json();
-                if (res.ok) {
-                    alert('Заказ обновлён');
-                    orderForm.onsubmit = originalSubmit;
-                    submitBtn.innerText = 'Оформить заказ';
-                    loadOrders();
-                } else alert('Ошибка: ' + (result.error || 'неизвестная'));
-            };
-        }
-    }
-    loadOrders();
-    <?php endif; ?>
-
-    // Отправка нового заказа
+    // Отправка формы
     const orderForm = document.getElementById('orderForm');
     const messageDiv = document.getElementById('form-message');
     if (orderForm) {
@@ -919,6 +802,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const organic = organicChk.checked;
             const total = parseInt(totalSpan.innerText);
 
+            // Очистка ошибок
             document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
             document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
@@ -941,7 +825,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     orderForm.reset();
                     quantitySlider.value = 1;
                     calcTotal();
-                    <?php if (isset($_SESSION['user_id'])) echo 'loadOrders();'; ?>
                 } else {
                     if (result.errors) {
                         for (const [field, err] of Object.entries(result.errors)) {
