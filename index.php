@@ -6,7 +6,6 @@ $route = $_GET['route'] ?? null;
 if ($route) {
     header('Content-Type: application/json');
     $method = $_SERVER['REQUEST_METHOD'];
-    // Эмуляция PUT через POST + _method
     if ($method === 'POST' && isset($_GET['_method'])) {
         $method = strtoupper($_GET['_method']);
     }
@@ -19,7 +18,9 @@ if ($route) {
     // Создание заказа (неавторизованный -> регистрация)
     if ($route === 'order' && $method === 'POST') {
         $name = trim($input['name'] ?? '');
+        $phone = trim($input['phone'] ?? '');
         $email = trim($input['email'] ?? '');
+        $message = trim($input['message'] ?? '');
         $product = trim($input['product'] ?? '');
         $quantity = (int)($input['quantity'] ?? 0);
         $delivery = (int)($input['delivery'] ?? 0);
@@ -29,9 +30,11 @@ if ($route) {
 
         $errors = [];
         if (empty($name)) $errors['name'] = 'Имя обязательно';
+        if (empty($phone)) $errors['phone'] = 'Телефон обязателен';
+        elseif (!preg_match('/^[\d\s\-\+\(\)]{10,20}$/', $phone)) $errors['phone'] = 'Некорректный телефон';
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Некорректный email';
         if (empty($product)) $errors['product'] = 'Выберите продукт';
-        if ($quantity < 1) $errors['quantity'] = 'Количество должно быть не менее 1';
+        if ($quantity < 1) $errors['quantity'] = 'Количество не менее 1';
         if ($total <= 0) $errors['total'] = 'Некорректная сумма';
 
         if (!empty($errors)) {
@@ -46,12 +49,15 @@ if ($route) {
                 $userId = $_SESSION['user_id'];
                 $login = null;
                 $plainPassword = null;
+                // Обновляем контактные данные пользователя
+                $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, message=? WHERE id=?");
+                $stmt->execute([$name, $phone, $email, $message, $userId]);
             } else {
                 $login = generateUniqueLogin($pdo);
                 $plainPassword = generatePassword();
                 $hash = password_hash($plainPassword, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO users (login, password_hash, name, email) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$login, $hash, $name, $email]);
+                $stmt = $pdo->prepare("INSERT INTO users (login, password_hash, name, phone, email, message) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$login, $hash, $name, $phone, $email, $message]);
                 $userId = $pdo->lastInsertId();
                 $_SESSION['user_id'] = $userId;
                 $_SESSION['login'] = $login;
@@ -92,10 +98,14 @@ if ($route) {
         $gift = isset($input['gift']) ? 1 : 0;
         $organic = isset($input['organic']) ? 1 : 0;
         $total = (int)($input['total'] ?? 0);
+        $name = trim($input['name'] ?? '');
+        $phone = trim($input['phone'] ?? '');
+        $email = trim($input['email'] ?? '');
+        $message = trim($input['message'] ?? '');
 
         $errors = [];
         if (empty($product)) $errors['product'] = 'Выберите продукт';
-        if ($quantity < 1) $errors['quantity'] = 'Количество должно быть не менее 1';
+        if ($quantity < 1) $errors['quantity'] = 'Количество не менее 1';
         if ($total <= 0) $errors['total'] = 'Некорректная сумма';
 
         if (!empty($errors)) {
@@ -113,9 +123,19 @@ if ($route) {
             exit;
         }
 
-        $stmt = $pdo->prepare("UPDATE orders SET product_type=?, quantity=?, delivery_cost=?, gift_wrap=?, organic_cert=?, total_price=? WHERE id=?");
-        $stmt->execute([$product, $quantity, $delivery, $gift, $organic, $total, $orderId]);
-        echo json_encode(['status' => 'updated']);
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("UPDATE orders SET product_type=?, quantity=?, delivery_cost=?, gift_wrap=?, organic_cert=?, total_price=? WHERE id=?");
+            $stmt->execute([$product, $quantity, $delivery, $gift, $organic, $total, $orderId]);
+            $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, message=? WHERE id=?");
+            $stmt->execute([$name, $phone, $email, $message, $userId]);
+            $pdo->commit();
+            echo json_encode(['status' => 'updated']);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['error' => 'Update failed']);
+        }
         exit;
     }
 
@@ -133,7 +153,7 @@ if ($route) {
         exit;
     }
 
-    // Получение одного заказа
+    // Получение одного заказа и данных пользователя
     if ($route === 'order' && $method === 'GET' && isset($_GET['id'])) {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
@@ -141,11 +161,11 @@ if ($route) {
             exit;
         }
         $orderId = (int)$_GET['id'];
-        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND user_id = ?");
+        $stmt = $pdo->prepare("SELECT o.*, u.name, u.phone, u.email, u.message FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ? AND o.user_id = ?");
         $stmt->execute([$orderId, $_SESSION['user_id']]);
-        $order = $stmt->fetch();
-        if ($order) {
-            echo json_encode($order);
+        $data = $stmt->fetch();
+        if ($data) {
+            echo json_encode($data);
         } else {
             http_response_code(404);
             echo json_encode(['error' => 'Order not found']);
@@ -180,8 +200,6 @@ if ($route) {
     echo json_encode(['error' => 'Route not found']);
     exit;
 }
-
-// Если не API – отдаём HTML-страницу
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -262,6 +280,48 @@ if ($route) {
          .orders-list { margin-top: 30px; background: white; border-radius: 16px; padding: 20px; }
         .order-item { border-bottom: 1px solid #eee; padding: 15px; cursor: pointer; }
         .order-item:hover { background: #f9f9f9; }
+
+         .calculator-form input, .calculator-form select, .calculator-form textarea {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background-color: white;
+        }
+        .calculator-form input:focus, .calculator-form select:focus, .calculator-form textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(76,175,80,0.2);
+        }
+        .calculator-form label {
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+            color: var(--dark-color);
+        }
+        .options-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .option-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f9f9f9;
+            padding: 8px 15px;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        .calculator-result {
+            background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+            border-radius: 16px;
+        }
+
     </style>
 </head>
 <body>
@@ -590,6 +650,11 @@ if ($route) {
                 <input type="text" id="name" name="name" required placeholder="Иван Петров">
                 <div class="field-error"></div>
             </div>
+            <div class="form-group" id="phone-group">
+                <label for="phone">Телефон *</label>
+                <input type="tel" id="phone" name="phone" required placeholder="+7 (123) 456-78-90">
+                <div class="field-error"></div>
+            </div>
             <div class="form-group" id="email-group">
                 <label for="email">Email *</label>
                 <input type="email" id="email" name="email" required placeholder="example@mail.ru">
@@ -618,7 +683,6 @@ if ($route) {
                     <option value="300">По городу (300 ₽)</option>
                     <option value="500">За город (500 ₽)</option>
                 </select>
-                <div class="field-error"></div>
             </div>
             <div class="form-group full-width">
                 <label>Дополнительно</label>
@@ -627,16 +691,20 @@ if ($route) {
                     <label class="option-checkbox"><input type="checkbox" id="organic" value="150"> Сертификат "Био" (+150 ₽)</label>
                 </div>
             </div>
+            <div class="form-group" id="message-group">
+                <label for="message">Пожелания к заказу</label>
+                <textarea id="message" name="message" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
+                <div class="field-error"></div>
+            </div>
             <div class="calculator-result">
                 <h3>Итоговая стоимость</h3>
                 <div class="total-price" id="total-price">0 ₽</div>
             </div>
-            <button type="submit" class="btn">Оформить заказ</button>
+            <button type="submit" class="btn" id="submit-order">Оформить заказ</button>
             <div id="form-message" class="form-message"></div>
         </form>
     </div>
 
-    <!-- Список заказов для авторизованного -->
     <?php if (isset($_SESSION['user_id'])): ?>
     <div class="orders-list" id="orders-container">
         <h3>Мои заказы</h3>
@@ -694,10 +762,11 @@ if ($route) {
 </div>
 
 
+
  <script src="script.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Калькулятор
+    // Калькулятор внутри формы
     const productSelect = document.getElementById('product');
     const quantitySlider = document.getElementById('quantity');
     const quantityVal = document.getElementById('quantityVal');
@@ -749,7 +818,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Загрузка заказов, если авторизован
+    // Загрузка заказов для авторизованного
     <?php if (isset($_SESSION['user_id'])): ?>
     async function loadOrders() {
         const container = document.getElementById('orders-list');
@@ -777,30 +846,36 @@ document.addEventListener('DOMContentLoaded', function() {
             } else container.innerHTML = '<p>У вас пока нет заказов.</p>';
         } catch(e) { container.innerHTML = '<p>Ошибка загрузки</p>'; }
     }
+
     async function loadOrderForEdit(id) {
         const res = await fetch(`index.php?route=order&id=${id}`);
-        const order = await res.json();
-        if (order.id) {
-            document.getElementById('name').value = document.querySelector('.user-info')?.innerText.split(',')[0] || '';
-            document.getElementById('email').value = '';
+        const data = await res.json();
+        if (data.id) {
+            document.getElementById('name').value = data.name || '';
+            document.getElementById('phone').value = data.phone || '';
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('message').value = data.message || '';
             for (let i=0; i<productSelect.options.length; i++) {
-                if (productSelect.options[i].value === order.product_type) {
+                if (productSelect.options[i].value === data.product_type) {
                     productSelect.selectedIndex = i;
                     break;
                 }
             }
-            quantitySlider.value = order.quantity;
-            deliverySelect.value = order.delivery_cost;
-            giftChk.checked = order.gift_wrap == 1;
-            organicChk.checked = order.organic_cert == 1;
+            quantitySlider.value = data.quantity;
+            deliverySelect.value = data.delivery_cost;
+            giftChk.checked = data.gift_wrap == 1;
+            organicChk.checked = data.organic_cert == 1;
             calcTotal();
-            // Меняем поведение кнопки на обновление
-            const submitBtn = document.querySelector('#orderForm button[type="submit"]');
+            const submitBtn = document.getElementById('submit-order');
             submitBtn.innerText = 'Обновить заказ';
             const originalSubmit = orderForm.onsubmit;
             orderForm.onsubmit = async (e) => {
                 e.preventDefault();
-                const data = {
+                const formData = {
+                    name: document.getElementById('name').value.trim(),
+                    phone: document.getElementById('phone').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    message: document.getElementById('message').value.trim(),
                     product: productSelect.value,
                     quantity: quantitySlider.value,
                     delivery: deliverySelect.value,
@@ -811,7 +886,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const res = await fetch(`index.php?route=order&id=${id}&_method=PUT`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(formData)
                 });
                 const result = await res.json();
                 if (res.ok) {
@@ -819,30 +894,35 @@ document.addEventListener('DOMContentLoaded', function() {
                     orderForm.onsubmit = originalSubmit;
                     submitBtn.innerText = 'Оформить заказ';
                     loadOrders();
-                } else alert('Ошибка');
+                } else alert('Ошибка: ' + (result.error || 'неизвестная'));
             };
         }
     }
     loadOrders();
     <?php endif; ?>
 
-    // Отправка формы
+    // Отправка нового заказа
     const orderForm = document.getElementById('orderForm');
     const messageDiv = document.getElementById('form-message');
     orderForm.onsubmit = async (e) => {
         e.preventDefault();
+        // Сбор данных
         const name = document.getElementById('name').value.trim();
+        const phone = document.getElementById('phone').value.trim();
         const email = document.getElementById('email').value.trim();
+        const message = document.getElementById('message').value.trim();
         const product = productSelect.value;
         const quantity = quantitySlider.value;
         const delivery = deliverySelect.value;
         const gift = giftChk.checked;
         const organic = organicChk.checked;
         const total = parseInt(totalSpan.innerText);
+
+        // Очистка ошибок
         document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
         document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
-        const data = { name, email, product, quantity, delivery, gift, organic, total };
+        const data = { name, phone, email, message, product, quantity, delivery, gift, organic, total };
         try {
             const res = await fetch('index.php?route=order', {
                 method: 'POST',
@@ -885,7 +965,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (closeCreds) closeCreds.onclick = closeModal;
     if (closeCredsBtn) closeCredsBtn.onclick = closeModal;
     window.onclick = (e) => { if (e.target === credsModal) closeModal(); };
-});
-</script>
+});</script>
 </body>
 </html>
