@@ -688,8 +688,9 @@ if ($route) {
             </div>
              <div class="form-group full-width">
                 <label class="option-checkbox">
-                    <input type="checkbox" id="consent_order">
                     <span>Я согласен на обработку персональных данных *</span>
+                    <input type="checkbox" id="consent_order">
+                    
                 </label>
                 <div class="field-error" id="consent-error"></div>
             </div>
