@@ -786,7 +786,6 @@ if (isset($_SESSION['user_id'])) {
             <ul class="footer-links">
                 <li><a href="#">Главная</a></li>
                 <li><a href="#products">Урожай</a></li>
-                <li><a href="#calculator">Калькулятор</a></li>
                 <li><a href="#gallery">Галерея</a></li>
                 <li><a href="#contact">Контакты</a></li>
             </ul>
