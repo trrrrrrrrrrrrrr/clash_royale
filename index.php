@@ -744,7 +744,9 @@ if (isset($_SESSION['user_id'])) {
                 </label>
                 <div class="field-error" id="consent-error"></div>
             </div>
-            <button type="submit" class="btn" id="submit-order">Оформить заказ</button>
+            <div style="text-align: center;">
+                <button type="submit" class="btn" id="submit-order">Оформить заказ</button>
+            </div>
             <div id="form-message" class="form-message"></div>
         </form>
     </div>
