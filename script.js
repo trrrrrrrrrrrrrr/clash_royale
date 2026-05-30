@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <li><a href="#"><i class="fas fa-home"></i> Главная</a></li>
                 <li><a href="#products"><i class="fas fa-carrot"></i> Урожай</a></li>
                 <li><a href="#gallery"><i class="fas fa-images"></i> Галерея</a></li>
-                <li><a href="#contact"><i class="fas fa-address-book"></i> Контакты</a></li>
+                <li><a href="#order-form"><i class="fas fa-address-book"></i> Контакты</a></li>
             </ul>
         `;
         
