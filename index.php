@@ -972,7 +972,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function closeModal() { credsModal.classList.remove('active'); }
     if (closeCreds) closeCreds.onclick = closeModal;
     if (closeCredsBtn) closeCredsBtn.onclick = closeModal;
-    window.onclick = (e) => { if (e.target === credsModal) closeModal(); };
+    
 });
 </script>
 </body>
