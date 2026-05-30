@@ -49,7 +49,6 @@ if ($route) {
                 $userId = $_SESSION['user_id'];
                 $login = null;
                 $plainPassword = null;
-                // Обновляем контактные данные пользователя
                 $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, message=? WHERE id=?");
                 $stmt->execute([$name, $phone, $email, $message, $userId]);
             } else {
@@ -646,23 +645,23 @@ if ($route) {
     <div class="calculator" style="max-width:800px; margin:0 auto;">
         <form id="orderForm" class="calculator-form">
             <div class="form-group" id="name-group">
-                <label for="name">Ваше имя *</label>
-                <input type="text" id="name" name="name" required placeholder="Иван Петров">
+                <label for="name_order">Ваше имя *</label>
+                <input type="text" id="name_order" name="name" required placeholder="Иван Петров">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="phone-group">
-                <label for="phone">Телефон *</label>
-                <input type="tel" id="phone" name="phone" required placeholder="+7 (123) 456-78-90">
+                <label for="phone_order">Телефон *</label>
+                <input type="tel" id="phone_order" name="phone" required placeholder="+7 (123) 456-78-90">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="email-group">
-                <label for="email">Email *</label>
-                <input type="email" id="email" name="email" required placeholder="example@mail.ru">
+                <label for="email_order">Email *</label>
+                <input type="email" id="email_order" name="email" required placeholder="example@mail.ru">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="product-group">
-                <label for="product">Продукт *</label>
-                <select id="product" name="product">
+                <label for="product_order">Продукт *</label>
+                <select id="product_order" name="product">
                     <option value="vegetables" data-price="150">Овощи (150 ₽/кг)</option>
                     <option value="fruits" data-price="300">Фрукты (300 ₽/кг)</option>
                     <option value="milk" data-price="200">Молочные продукты (200 ₽/л)</option>
@@ -672,13 +671,13 @@ if ($route) {
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="quantity-group">
-                <label for="quantity">Количество: <span id="quantityVal">1</span></label>
-                <input type="range" id="quantity" min="1" max="20" value="1">
+                <label for="quantity_order">Количество: <span id="quantityVal_order">1</span></label>
+                <input type="range" id="quantity_order" min="1" max="20" value="1">
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="delivery-group">
-                <label for="delivery">Доставка</label>
-                <select id="delivery">
+                <label for="delivery_order">Доставка</label>
+                <select id="delivery_order">
                     <option value="0">Самовывоз (бесплатно)</option>
                     <option value="300">По городу (300 ₽)</option>
                     <option value="500">За город (500 ₽)</option>
@@ -687,18 +686,18 @@ if ($route) {
             <div class="form-group full-width">
                 <label>Дополнительно</label>
                 <div class="options-group">
-                    <label class="option-checkbox"><input type="checkbox" id="gift" value="200"> Подарочная упаковка (+200 ₽)</label>
-                    <label class="option-checkbox"><input type="checkbox" id="organic" value="150"> Сертификат "Био" (+150 ₽)</label>
+                    <label class="option-checkbox"><input type="checkbox" id="gift_order" value="200"> Подарочная упаковка (+200 ₽)</label>
+                    <label class="option-checkbox"><input type="checkbox" id="organic_order" value="150"> Сертификат "Био" (+150 ₽)</label>
                 </div>
             </div>
             <div class="form-group" id="message-group">
-                <label for="message">Пожелания к заказу</label>
-                <textarea id="message" name="message" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
+                <label for="message_order">Пожелания к заказу</label>
+                <textarea id="message_order" name="message" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
                 <div class="field-error"></div>
             </div>
             <div class="calculator-result">
                 <h3>Итоговая стоимость</h3>
-                <div class="total-price" id="total-price">0 ₽</div>
+                <div class="total-price" id="total_price_order">0 ₽</div>
             </div>
             <button type="submit" class="btn" id="submit-order">Оформить заказ</button>
             <div id="form-message" class="form-message"></div>
@@ -712,6 +711,7 @@ if ($route) {
     </div>
     <?php endif; ?>
 </section>
+
 
 <footer>
      <div class="footer-content">
@@ -766,32 +766,36 @@ if ($route) {
  <script src="script.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Калькулятор внутри формы
-    const productSelect = document.getElementById('product');
-    const quantitySlider = document.getElementById('quantity');
-    const quantityVal = document.getElementById('quantityVal');
-    const deliverySelect = document.getElementById('delivery');
-    const giftChk = document.getElementById('gift');
-    const organicChk = document.getElementById('organic');
-    const totalSpan = document.getElementById('total-price');
+    // ========== КАЛЬКУЛЯТОР В ФОРМЕ (независимый, со своими ID) ==========
+    const productSelect = document.getElementById('product_order');
+    const quantitySlider = document.getElementById('quantity_order');
+    const quantityVal = document.getElementById('quantityVal_order');
+    const deliverySelect = document.getElementById('delivery_order');
+    const giftChk = document.getElementById('gift_order');
+    const organicChk = document.getElementById('organic_order');
+    const totalSpan = document.getElementById('total_price_order');
 
     function calcTotal() {
+        if (!productSelect || !quantitySlider || !deliverySelect || !totalSpan) return;
         let price = parseInt(productSelect.options[productSelect.selectedIndex].dataset.price);
         let qty = parseInt(quantitySlider.value);
         let delivery = parseInt(deliverySelect.value);
         let extra = (giftChk.checked ? 200 : 0) + (organicChk.checked ? 150 : 0);
         let total = (price * qty) + delivery + extra;
         totalSpan.innerText = total + ' ₽';
-        quantityVal.innerText = qty;
+        if (quantityVal) quantityVal.innerText = qty;
     }
-    productSelect.addEventListener('change', calcTotal);
-    quantitySlider.addEventListener('input', calcTotal);
-    deliverySelect.addEventListener('change', calcTotal);
-    giftChk.addEventListener('change', calcTotal);
-    organicChk.addEventListener('change', calcTotal);
-    calcTotal();
 
-    // Авторизация
+    if (productSelect) {
+        productSelect.addEventListener('change', calcTotal);
+        quantitySlider.addEventListener('input', calcTotal);
+        deliverySelect.addEventListener('change', calcTotal);
+        if (giftChk) giftChk.addEventListener('change', calcTotal);
+        if (organicChk) organicChk.addEventListener('change', calcTotal);
+        calcTotal();
+    }
+
+    // ========== АВТОРИЗАЦИЯ ==========
     const loginBtn = document.getElementById('login-btn');
     const loginModal = document.getElementById('login-modal');
     const closeLogin = document.getElementById('close-login');
@@ -818,7 +822,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Загрузка заказов для авторизованного
+    // ========== ЗАГРУЗКА ЗАКАЗОВ (для авторизованного) ==========
     <?php if (isset($_SESSION['user_id'])): ?>
     async function loadOrders() {
         const container = document.getElementById('orders-list');
@@ -851,10 +855,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const res = await fetch(`index.php?route=order&id=${id}`);
         const data = await res.json();
         if (data.id) {
-            document.getElementById('name').value = data.name || '';
-            document.getElementById('phone').value = data.phone || '';
-            document.getElementById('email').value = data.email || '';
-            document.getElementById('message').value = data.message || '';
+            document.getElementById('name_order').value = data.name || '';
+            document.getElementById('phone_order').value = data.phone || '';
+            document.getElementById('email_order').value = data.email || '';
+            document.getElementById('message_order').value = data.message || '';
             for (let i=0; i<productSelect.options.length; i++) {
                 if (productSelect.options[i].value === data.product_type) {
                     productSelect.selectedIndex = i;
@@ -872,10 +876,10 @@ document.addEventListener('DOMContentLoaded', function() {
             orderForm.onsubmit = async (e) => {
                 e.preventDefault();
                 const formData = {
-                    name: document.getElementById('name').value.trim(),
-                    phone: document.getElementById('phone').value.trim(),
-                    email: document.getElementById('email').value.trim(),
-                    message: document.getElementById('message').value.trim(),
+                    name: document.getElementById('name_order').value.trim(),
+                    phone: document.getElementById('phone_order').value.trim(),
+                    email: document.getElementById('email_order').value.trim(),
+                    message: document.getElementById('message_order').value.trim(),
                     product: productSelect.value,
                     quantity: quantitySlider.value,
                     delivery: deliverySelect.value,
@@ -901,63 +905,64 @@ document.addEventListener('DOMContentLoaded', function() {
     loadOrders();
     <?php endif; ?>
 
-    // Отправка нового заказа
+    // ========== ОТПРАВКА НОВОГО ЗАКАЗА ==========
     const orderForm = document.getElementById('orderForm');
     const messageDiv = document.getElementById('form-message');
-    orderForm.onsubmit = async (e) => {
-        e.preventDefault();
-        // Сбор данных
-        const name = document.getElementById('name').value.trim();
-        const phone = document.getElementById('phone').value.trim();
-        const email = document.getElementById('email').value.trim();
-        const message = document.getElementById('message').value.trim();
-        const product = productSelect.value;
-        const quantity = quantitySlider.value;
-        const delivery = deliverySelect.value;
-        const gift = giftChk.checked;
-        const organic = organicChk.checked;
-        const total = parseInt(totalSpan.innerText);
+    if (orderForm) {
+        orderForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name_order').value.trim();
+            const phone = document.getElementById('phone_order').value.trim();
+            const email = document.getElementById('email_order').value.trim();
+            const message = document.getElementById('message_order').value.trim();
+            const product = productSelect.value;
+            const quantity = quantitySlider.value;
+            const delivery = deliverySelect.value;
+            const gift = giftChk.checked;
+            const organic = organicChk.checked;
+            const total = parseInt(totalSpan.innerText);
 
-        // Очистка ошибок
-        document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
-        document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
+            // Очистка ошибок
+            document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
+            document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
-        const data = { name, phone, email, message, product, quantity, delivery, gift, organic, total };
-        try {
-            const res = await fetch('index.php?route=order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            const result = await res.json();
-            if (res.ok && result.status === 'created') {
-                messageDiv.innerText = 'Заказ оформлен!';
-                messageDiv.className = 'form-message success';
-                if (result.login && result.password) {
-                    document.getElementById('new-login').innerText = result.login;
-                    document.getElementById('new-password').innerText = result.password;
-                    document.getElementById('creds-modal').classList.add('active');
-                }
-                orderForm.reset();
-                quantitySlider.value = 1;
-                calcTotal();
-                <?php if (isset($_SESSION['user_id'])) echo 'loadOrders();'; ?>
-            } else {
-                if (result.errors) {
-                    for (const [field, err] of Object.entries(result.errors)) {
-                        const group = document.getElementById(`${field}-group`);
-                        if (group) {
-                            group.classList.add('error');
-                            group.querySelector('.field-error').innerText = err;
-                        }
+            const data = { name, phone, email, message, product, quantity, delivery, gift, organic, total };
+            try {
+                const res = await fetch('index.php?route=order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (res.ok && result.status === 'created') {
+                    messageDiv.innerText = 'Заказ оформлен!';
+                    messageDiv.className = 'form-message success';
+                    if (result.login && result.password) {
+                        document.getElementById('new-login').innerText = result.login;
+                        document.getElementById('new-password').innerText = result.password;
+                        document.getElementById('creds-modal').classList.add('active');
                     }
-                } else messageDiv.innerText = result.error || 'Ошибка';
-            }
-        } catch(err) { messageDiv.innerText = 'Ошибка сети'; }
-        setTimeout(() => messageDiv.innerText = '', 3000);
-    };
+                    orderForm.reset();
+                    quantitySlider.value = 1;
+                    calcTotal();
+                    <?php if (isset($_SESSION['user_id'])) echo 'loadOrders();'; ?>
+                } else {
+                    if (result.errors) {
+                        for (const [field, err] of Object.entries(result.errors)) {
+                            const group = document.getElementById(`${field}-group`);
+                            if (group) {
+                                group.classList.add('error');
+                                group.querySelector('.field-error').innerText = err;
+                            }
+                        }
+                    } else messageDiv.innerText = result.error || 'Ошибка';
+                }
+            } catch(err) { messageDiv.innerText = 'Ошибка сети'; }
+            setTimeout(() => messageDiv.innerText = '', 3000);
+        };
+    }
 
-    // Закрытие модалки с данными
+    // ========== ЗАКРЫТИЕ МОДАЛКИ С ДАННЫМИ ==========
     const credsModal = document.getElementById('creds-modal');
     const closeCreds = document.getElementById('close-creds');
     const closeCredsBtn = document.getElementById('close-creds-btn');
@@ -965,6 +970,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (closeCreds) closeCreds.onclick = closeModal;
     if (closeCredsBtn) closeCredsBtn.onclick = closeModal;
     window.onclick = (e) => { if (e.target === credsModal) closeModal(); };
-});</script>
+});
+</script>
 </body>
 </html>

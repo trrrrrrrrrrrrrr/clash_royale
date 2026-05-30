@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
      initMobileMenu();
     initColorPickers();
     initGallerySlider();
-    initCalculator();
+    //initCalculator();
     initBlog();
     // ========== ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ==========
     
