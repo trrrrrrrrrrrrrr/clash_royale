@@ -676,13 +676,7 @@ if ($route) {
                 </div>
             </div>
             <!-- НОВЫЙ чекбокс согласия (в виде красивой кнопки) -->
-            <div class="form-group full-width">
-                <label class="option-checkbox">
-                    <input type="checkbox" id="consent_order">
-                    <span>Я согласен на обработку персональных данных *</span>
-                </label>
-                <div class="field-error" id="consent-error"></div>
-            </div>
+           
             <div class="form-group" id="message-group">
                 <label for="message_order">Пожелания к заказу</label>
                 <textarea id="message_order" name="message" rows="3" placeholder="Например: без лука, доставка к 18:00"></textarea>
@@ -692,6 +686,14 @@ if ($route) {
                 <h3>Итоговая стоимость</h3>
                 <div class="total-price" id="total_price_order">0 ₽</div>
             </div>
+             <div class="form-group full-width">
+                <label class="option-checkbox">
+                    <input type="checkbox" id="consent_order">
+                    <span>Я согласен на обработку персональных данных *</span>
+                </label>
+                <div class="field-error" id="consent-error"></div>
+            </div>
+
             <button type="submit" class="btn" id="submit-order">Оформить заказ</button>
             <div id="form-message" class="form-message"></div>
         </form>
