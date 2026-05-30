@@ -907,65 +907,62 @@ document.addEventListener('DOMContentLoaded', function() {
     const messageDiv = document.getElementById('form-message');
     if (orderForm) {
         orderForm.onsubmit = async (e) => {
-            e.preventDefault();
-            // Получаем данные
-            const name = document.getElementById('name_order').value.trim();
-            const phone = document.getElementById('phone_order').value.trim();
-            const email = document.getElementById('email_order').value.trim();
-            const message = document.getElementById('message_order').value.trim();
-            const consent = document.getElementById('consent_order').checked;
-            const product = productSelect.value;
-            const quantity = parseInt(quantityInput.value);
-            const delivery = parseInt(deliverySelect.value);
-            const gift = giftChk.checked;
-            const organic = organicChk.checked;
-            const total = parseInt(totalSpan.innerText);
+    e.preventDefault();
+    const name = document.getElementById('name_order').value.trim();
+    const phone = document.getElementById('phone_order').value.trim();
+    const email = document.getElementById('email_order').value.trim();
+    const message = document.getElementById('message_order').value.trim();
+    const consent = document.getElementById('consent_order').checked;
+    const product = productSelect.value;
+    const quantity = parseInt(quantityInput.value);
+    const delivery = parseInt(deliverySelect.value);
+    const gift = giftChk.checked;
+    const organic = organicChk.checked;
+    const total = parseInt(totalSpan.innerText);
 
-            // Очистка ошибок
-            document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
-            document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
+    document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
+    document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
-            const data = { name, phone, email, message, consent, product, quantity, delivery, gift, organic, total };
-            try {
-                const res = await fetch('index.php?route=order', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await res.json();
-                if (res.ok && result.status === 'created') {
-                    messageDiv.innerText = 'Заказ оформлен!';
-                    messageDiv.className = 'form-message success';
-                    if (result.login && result.password) {
-                        document.getElementById('new-login').innerText = result.login;
-                        document.getElementById('new-password').innerText = result.password;
-                        document.getElementById('creds-modal').classList.add('active');
-                    }
-                    orderForm.reset();
-                    quantityInput.value = 1;
-                    calcTotal();
-                    // Если пользователь неавторизован – после создания он становится авторизованным, перезагрузим страницу
-                    if (!<?= json_encode(isset($_SESSION['user_id'])) ?>) {
-                        setTimeout(() => location.reload(), 2000);
-                    }
-                } else {
-                    if (result.errors) {
-                        for (const [field, err] of Object.entries(result.errors)) {
-                            if (field === 'consent') {
-                                document.getElementById('consent-error').innerText = err;
-                            } else {
-                                const group = document.getElementById(`${field}-group`);
-                                if (group) {
-                                    group.classList.add('error');
-                                    group.querySelector('.field-error').innerText = err;
-                                }
-                            }
+    const data = { name, phone, email, message, consent, product, quantity, delivery, gift, organic, total };
+    try {
+        const res = await fetch('index.php?route=order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (res.ok && result.status === 'created') {
+            messageDiv.innerText = 'Заказ оформлен!';
+            messageDiv.className = 'form-message success';
+            if (result.login && result.password) {
+                document.getElementById('new-login').innerText = result.login;
+                document.getElementById('new-password').innerText = result.password;
+                const credsModal = document.getElementById('creds-modal');
+                credsModal.classList.add('active');
+                // Удаляем любые старые таймеры, которые могли закрыть модалку
+                if (window._credsTimeout) clearTimeout(window._credsTimeout);
+            }
+            orderForm.reset();
+            quantityInput.value = 1;
+            calcTotal();
+        } else {
+            if (result.errors) {
+                for (const [field, err] of Object.entries(result.errors)) {
+                    if (field === 'consent') {
+                        document.getElementById('consent-error').innerText = err;
+                    } else {
+                        const group = document.getElementById(`${field}-group`);
+                        if (group) {
+                            group.classList.add('error');
+                            group.querySelector('.field-error').innerText = err;
                         }
-                    } else messageDiv.innerText = result.error || 'Ошибка';
+                    }
                 }
-            } catch(err) { messageDiv.innerText = 'Ошибка сети'; }
-            setTimeout(() => messageDiv.innerText = '', 3000);
-        };
+            } else messageDiv.innerText = result.error || 'Ошибка';
+        }
+    } catch(err) { messageDiv.innerText = 'Ошибка сети'; }
+    setTimeout(() => messageDiv.innerText = '', 3000);
+};
     }
 
     // Закрытие модалки с данными
