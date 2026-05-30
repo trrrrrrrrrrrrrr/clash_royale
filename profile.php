@@ -325,139 +325,185 @@ $updated = isset($_GET['updated']);
 
 
 <script>
-const logoutBtn = document.getElementById('logout-btn');
+document.addEventListener('DOMContentLoaded', function() {
+    // ===== 1. ПОДТВЕРЖДЕНИЕ ВЫХОДА =====
+    const logoutBtn = document.getElementById('logout-btn');
     const confirmLogoutModal = document.getElementById('confirm-logout-modal');
     const closeLogout = document.getElementById('close-logout-confirm');
     const confirmLogoutYes = document.getElementById('confirm-logout-yes');
     const confirmLogoutNo = document.getElementById('confirm-logout-no');
-    if (logoutBtn) logoutBtn.onclick = () => confirmLogoutModal.classList.add('active');
-    function closeLogoutModal() { confirmLogoutModal.classList.remove('active'); }
+
+    if (logoutBtn) {
+        logoutBtn.onclick = () => confirmLogoutModal.classList.add('active');
+    }
+    function closeLogoutModal() {
+        confirmLogoutModal.classList.remove('active');
+    }
     if (closeLogout) closeLogout.onclick = closeLogoutModal;
     if (confirmLogoutNo) confirmLogoutNo.onclick = closeLogoutModal;
-    if (confirmLogoutYes) confirmLogoutYes.onclick = () => { window.location.href = 'logout.php'; };
-    window.onclick = (e) => { if (e.target === confirmLogoutModal) closeLogoutModal(); };
+    if (confirmLogoutYes) {
+        confirmLogoutYes.onclick = () => { window.location.href = 'logout.php'; };
+    }
+    window.onclick = (e) => {
+        if (e.target === confirmLogoutModal) closeLogoutModal();
+    };
 
-    // ------ Инфо-модалка (уведомления) ------
+    // ===== 2. ИНФОРМАЦИОННАЯ МОДАЛКА (СООБЩЕНИЯ) =====
     const infoModal = document.getElementById('info-modal');
-    const infoMsg = document.getElementById('info-message-text');
+    const infoMessage = document.getElementById('info-message-text');
     const closeInfo = document.getElementById('close-info');
     const infoOk = document.getElementById('info-ok');
-    function showInfo(msg) { infoMsg.innerText = msg; infoModal.classList.add('active'); }
-    function closeInfoModal() { infoModal.classList.remove('active'); }
+
+    function showInfoMessage(msg) {
+        if (!infoMessage || !infoModal) return;
+        infoMessage.innerText = msg;
+        infoModal.classList.add('active');
+    }
+    function closeInfoModal() {
+        if (infoModal) infoModal.classList.remove('active');
+    }
     if (closeInfo) closeInfo.onclick = closeInfoModal;
     if (infoOk) infoOk.onclick = closeInfoModal;
-    window.onclick = (e) => { if (e.target === infoModal) closeInfoModal(); };
+    window.onclick = (e) => {
+        if (e.target === infoModal) closeInfoModal();
+    };
 
-    // ------ Подтверждение отмены заказа ------
+    // ===== 3. ПОДТВЕРЖДЕНИЕ ОТМЕНЫ ЗАКАЗА =====
     let pendingCancelOrderId = null;
     const confirmCancelModal = document.getElementById('confirm-cancel-modal');
     const closeCancelConfirm = document.getElementById('close-cancel-confirm');
     const confirmCancelYes = document.getElementById('confirm-cancel-yes');
     const confirmCancelNo = document.getElementById('confirm-cancel-no');
-    function closeCancelModal() { confirmCancelModal.classList.remove('active'); pendingCancelOrderId = null; }
+
+    function closeCancelModal() {
+        if (confirmCancelModal) confirmCancelModal.classList.remove('active');
+        pendingCancelOrderId = null;
+    }
     if (closeCancelConfirm) closeCancelConfirm.onclick = closeCancelModal;
     if (confirmCancelNo) confirmCancelNo.onclick = closeCancelModal;
-    window.onclick = (e) => { if (e.target === confirmCancelModal) closeCancelModal(); };
+    window.onclick = (e) => {
+        if (e.target === confirmCancelModal) closeCancelModal();
+    };
 
     document.querySelectorAll('.cancel-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             pendingCancelOrderId = btn.dataset.id;
-            confirmCancelModal.classList.add('active');
+            if (confirmCancelModal) confirmCancelModal.classList.add('active');
         });
     });
+
     if (confirmCancelYes) {
         confirmCancelYes.onclick = async () => {
             if (!pendingCancelOrderId) return;
             try {
-                const res = await fetch(`index.php?route=cancel&id=${pendingCancelOrderId}`, { method: 'POST' });
+                const res = await fetch(`index.php?route=cancel&id=${pendingCancelOrderId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
                 const data = await res.json();
                 if (res.ok && data.status === 'cancelled') {
-                    showInfo('Заказ отменён. Страница будет обновлена.');
+                    showInfoMessage('Заказ отменён. Страница будет обновлена.');
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showInfo(data.error || 'Не удалось отменить заказ');
+                    showInfoMessage(data.error || 'Не удалось отменить заказ');
                 }
-            } catch(err) { showInfo('Ошибка сети'); }
+            } catch (err) {
+                showInfoMessage('Ошибка сети');
+            }
             closeCancelModal();
         };
     }
 
-    // Редактирование: загрузка данных
+    // ===== 4. РЕДАКТИРОВАНИЕ ЗАКАЗА (ТОЛЬКО ДЛЯ NEW) =====
     const editModal = document.getElementById('edit-modal');
     const closeEdit = document.getElementById('close-edit');
     if (closeEdit) closeEdit.onclick = () => editModal.classList.remove('active');
-    window.onclick = (e) => { if (e.target === editModal) editModal.classList.remove('active'); };
+    window.onclick = (e) => {
+        if (e.target === editModal) editModal.classList.remove('active');
+    };
 
     async function loadOrderForEdit(orderId) {
         try {
             const res = await fetch(`index.php?route=order&id=${orderId}`);
             const data = await res.json();
-            if (data.id) {
-                document.getElementById('edit-order-id').value = data.id;
-                document.getElementById('edit-quantity').value = data.quantity;
-                document.getElementById('edit-message').value = data.message || '';
+            if (!data.id) {
+                showInfoMessage('Не удалось загрузить заказ');
+                return;
+            }
+            document.getElementById('edit-order-id').value = data.id;
+            document.getElementById('edit-quantity').value = data.quantity;
+            document.getElementById('edit-message').value = data.message || '';
 
-                const productSelect = document.getElementById('edit-product');
-                const products = [
-                    {value:'vegetables', label:'Овощи (150 ₽/кг)'},
-                    {value:'fruits', label:'Фрукты (300 ₽/кг)'},
-                    {value:'milk', label:'Молочные продукты (200 ₽/л)'},
-                    {value:'honey', label:'Мёд (400 ₽/бут)'},
-                    {value:'cheese', label:'Сыр (500 ₽/кг)'}
-                ];
-                productSelect.innerHTML = '';
-                products.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.value;
-                    opt.textContent = p.label;
-                    if (p.value === data.product_type) opt.selected = true;
-                    productSelect.appendChild(opt);
+            // Заполнение выбора продукта
+            const productSelect = document.getElementById('edit-product');
+            const products = [
+                {value:'vegetables', label:'Овощи (150 ₽/кг)'},
+                {value:'fruits', label:'Фрукты (300 ₽/кг)'},
+                {value:'milk', label:'Молочные продукты (200 ₽/л)'},
+                {value:'honey', label:'Мёд (400 ₽/бут)'},
+                {value:'cheese', label:'Сыр (500 ₽/кг)'}
+            ];
+            productSelect.innerHTML = '';
+            products.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.value;
+                opt.textContent = p.label;
+                if (p.value === data.product_type) opt.selected = true;
+                productSelect.appendChild(opt);
+            });
+
+            // Заполнение выбора доставки
+            const deliverySelect = document.getElementById('edit-delivery');
+            deliverySelect.innerHTML = `
+                <option value="0">Самовывоз (бесплатно)</option>
+                <option value="300">По городу (300 ₽)</option>
+                <option value="500">За город (500 ₽)</option>
+            `;
+            deliverySelect.value = data.delivery_cost;
+
+            // Toggle-кнопки (упаковка, био)
+            const giftBtns = document.querySelectorAll('[data-opt="gift"]');
+            const organicBtns = document.querySelectorAll('[data-opt="organic"]');
+            const giftHidden = document.getElementById('edit-gift-hidden');
+            const organicHidden = document.getElementById('edit-organic-hidden');
+
+            function setToggleState(btns, value) {
+                btns.forEach(btn => {
+                    btn.classList.remove('active');
+                    if (parseInt(btn.dataset.value) === value) btn.classList.add('active');
                 });
+            }
+            setToggleState(giftBtns, data.gift_wrap);
+            setToggleState(organicBtns, data.organic_cert);
+            if (giftHidden) giftHidden.value = data.gift_wrap;
+            if (organicHidden) organicHidden.value = data.organic_cert;
 
-                const deliverySelect = document.getElementById('edit-delivery');
-                deliverySelect.innerHTML = `
-                    <option value="0">Самовывоз (бесплатно)</option>
-                    <option value="300">По городу (300 ₽)</option>
-                    <option value="500">За город (500 ₽)</option>
-                `;
-                deliverySelect.value = data.delivery_cost;
-
-                const giftBtns = document.querySelectorAll('[data-opt="gift"]');
-                const organicBtns = document.querySelectorAll('[data-opt="organic"]');
-                const giftHidden = document.getElementById('edit-gift-hidden');
-                const organicHidden = document.getElementById('edit-organic-hidden');
-
-                function setActive(btns, val) {
-                    btns.forEach(b => {
-                        b.classList.remove('active');
-                        if (parseInt(b.dataset.value) === val) b.classList.add('active');
-                    });
-                }
-                setActive(giftBtns, data.gift_wrap);
-                setActive(organicBtns, data.organic_cert);
-                giftHidden.value = data.gift_wrap;
-                organicHidden.value = data.organic_cert;
-
+            // Обработчики для toggle-кнопок (устанавливаются один раз)
+            if (!giftBtns[0]?.hasListener) {
                 giftBtns.forEach(btn => {
-                    btn.onclick = () => {
+                    btn.addEventListener('click', () => {
+                        const val = parseInt(btn.dataset.value);
                         giftBtns.forEach(b => b.classList.remove('active'));
                         btn.classList.add('active');
-                        giftHidden.value = btn.dataset.value;
-                    };
+                        if (giftHidden) giftHidden.value = val;
+                    });
                 });
                 organicBtns.forEach(btn => {
-                    btn.onclick = () => {
+                    btn.addEventListener('click', () => {
+                        const val = parseInt(btn.dataset.value);
                         organicBtns.forEach(b => b.classList.remove('active'));
                         btn.classList.add('active');
-                        organicHidden.value = btn.dataset.value;
-                    };
+                        if (organicHidden) organicHidden.value = val;
+                    });
                 });
-
-                editModal.classList.add('active');
-            } else {
-                showInfo('Не удалось загрузить заказ');
+                if (giftBtns[0]) giftBtns[0].hasListener = true;
             }
-        } catch(e) { showInfo('Ошибка загрузки заказа'); }
+
+            editModal.classList.add('active');
+        } catch (e) {
+            showInfoMessage('Ошибка загрузки заказа');
+            console.error(e);
+        }
     }
 
     document.querySelectorAll('.edit-btn').forEach(btn => {
