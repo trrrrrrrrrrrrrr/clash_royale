@@ -697,29 +697,45 @@ if ($route) {
  <script src="script.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('contact-form');
-    const messageDiv = document.getElementById('form-message');
-    const loginModal = document.getElementById('login-modal');
-    const credsModal = document.getElementById('creds-modal');
+    // Калькулятор
+    const productSelect = document.getElementById('product');
+    const quantitySlider = document.getElementById('quantity');
+    const quantityVal = document.getElementById('quantityVal');
+    const deliverySelect = document.getElementById('delivery');
+    const giftChk = document.getElementById('gift');
+    const organicChk = document.getElementById('organic');
+    const totalSpan = document.getElementById('total-price');
+
+    function calcTotal() {
+        let price = parseInt(productSelect.options[productSelect.selectedIndex].dataset.price);
+        let qty = parseInt(quantitySlider.value);
+        let delivery = parseInt(deliverySelect.value);
+        let extra = (giftChk.checked ? 200 : 0) + (organicChk.checked ? 150 : 0);
+        let total = (price * qty) + delivery + extra;
+        totalSpan.innerText = total + ' ₽';
+        quantityVal.innerText = qty;
+    }
+    productSelect.addEventListener('change', calcTotal);
+    quantitySlider.addEventListener('input', calcTotal);
+    deliverySelect.addEventListener('change', calcTotal);
+    giftChk.addEventListener('change', calcTotal);
+    organicChk.addEventListener('change', calcTotal);
+    calcTotal();
+
+    // Авторизация
     const loginBtn = document.getElementById('login-btn');
-    const closeLogin = document.getElementById('close-login-modal');
-    const closeCreds = document.getElementById('close-creds-modal');
-    const closeCredsBtn = document.getElementById('close-creds-btn');
+    const loginModal = document.getElementById('login-modal');
+    const closeLogin = document.getElementById('close-login');
+    if (loginBtn) loginBtn.onclick = () => loginModal.classList.add('active');
+    if (closeLogin) closeLogin.onclick = () => loginModal.classList.remove('active');
+    window.onclick = (e) => { if (e.target === loginModal) loginModal.classList.remove('active'); };
 
-    // Открытие модалки входа
-    if (loginBtn) loginBtn.addEventListener('click', () => loginModal.classList.add('active'));
-    function closeLoginModal() { loginModal.classList.remove('active'); }
-    if (closeLogin) closeLogin.addEventListener('click', closeLoginModal);
-    window.addEventListener('click', (e) => { if (e.target === loginModal) closeLoginModal(); });
-
-    // Логин
-    const loginForm = document.getElementById('login-form');
+    const loginForm = document.getElementById('loginForm');
     if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
+        loginForm.onsubmit = async (e) => {
             e.preventDefault();
-            const login = document.getElementById('login-login').value;
+            const login = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
-            const errorDiv = document.getElementById('login-error');
             try {
                 const res = await fetch('index.php?route=login', {
                     method: 'POST',
@@ -727,85 +743,148 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({ login, password })
                 });
                 const data = await res.json();
-                if (res.ok && data.status === 'ok') {
-                    window.location.reload();
-                } else {
-                    errorDiv.textContent = data.error || 'Ошибка входа';
-                }
-            } catch (err) {
-                errorDiv.textContent = 'Сетевая ошибка';
-            }
-        });
+                if (res.ok && data.status === 'ok') location.reload();
+                else document.getElementById('login-error').innerText = data.error || 'Ошибка входа';
+            } catch(err) { document.getElementById('login-error').innerText = 'Ошибка сети'; }
+        };
     }
 
-    // Загрузка профиля для авторизованного пользователя
+    // Загрузка заказов, если авторизован
     <?php if (isset($_SESSION['user_id'])): ?>
-        fetch('index.php?route=profile')
-            .then(res => res.json())
-            .then(data => {
-                if (data.name) document.getElementById('name').value = data.name;
-                if (data.email) document.getElementById('email').value = data.email;
-                if (data.message) document.getElementById('message').value = data.message;
-            })
-            .catch(console.error);
+    async function loadOrders() {
+        const container = document.getElementById('orders-list');
+        try {
+            const res = await fetch('index.php?route=orders');
+            const orders = await res.json();
+            if (orders.length) {
+                let html = '';
+                orders.forEach(order => {
+                    let productName = '';
+                    if (order.product_type === 'vegetables') productName = 'Овощи';
+                    else if (order.product_type === 'fruits') productName = 'Фрукты';
+                    else if (order.product_type === 'milk') productName = 'Молочное';
+                    else if (order.product_type === 'honey') productName = 'Мёд';
+                    else productName = 'Сыр';
+                    html += `<div class="order-item" data-id="${order.id}">
+                        <strong>Заказ №${order.id}</strong> — ${productName}, ${order.quantity} шт., сумма ${order.total_price} ₽<br>
+                        <small>Статус: ${order.status}</small>
+                    </div>`;
+                });
+                container.innerHTML = html;
+                document.querySelectorAll('.order-item').forEach(el => {
+                    el.addEventListener('click', () => loadOrderForEdit(el.dataset.id));
+                });
+            } else container.innerHTML = '<p>У вас пока нет заказов.</p>';
+        } catch(e) { container.innerHTML = '<p>Ошибка загрузки</p>'; }
+    }
+    async function loadOrderForEdit(id) {
+        const res = await fetch(`index.php?route=order&id=${id}`);
+        const order = await res.json();
+        if (order.id) {
+            document.getElementById('name').value = document.querySelector('.user-info')?.innerText.split(',')[0] || '';
+            document.getElementById('email').value = '';
+            for (let i=0; i<productSelect.options.length; i++) {
+                if (productSelect.options[i].value === order.product_type) {
+                    productSelect.selectedIndex = i;
+                    break;
+                }
+            }
+            quantitySlider.value = order.quantity;
+            deliverySelect.value = order.delivery_cost;
+            giftChk.checked = order.gift_wrap == 1;
+            organicChk.checked = order.organic_cert == 1;
+            calcTotal();
+            // Меняем поведение кнопки на обновление
+            const submitBtn = document.querySelector('#orderForm button[type="submit"]');
+            submitBtn.innerText = 'Обновить заказ';
+            const originalSubmit = orderForm.onsubmit;
+            orderForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const data = {
+                    product: productSelect.value,
+                    quantity: quantitySlider.value,
+                    delivery: deliverySelect.value,
+                    gift: giftChk.checked,
+                    organic: organicChk.checked,
+                    total: parseInt(totalSpan.innerText)
+                };
+                const res = await fetch(`index.php?route=order&id=${id}&_method=PUT`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    alert('Заказ обновлён');
+                    orderForm.onsubmit = originalSubmit;
+                    submitBtn.innerText = 'Оформить заказ';
+                    loadOrders();
+                } else alert('Ошибка');
+            };
+        }
+    }
+    loadOrders();
     <?php endif; ?>
 
-    // Отправка формы (POST или PUT)
-    form.addEventListener('submit', async (e) => {
+    // Отправка формы
+    const orderForm = document.getElementById('orderForm');
+    const messageDiv = document.getElementById('form-message');
+    orderForm.onsubmit = async (e) => {
         e.preventDefault();
         const name = document.getElementById('name').value.trim();
         const email = document.getElementById('email').value.trim();
-        const message = document.getElementById('message').value.trim();
-
+        const product = productSelect.value;
+        const quantity = quantitySlider.value;
+        const delivery = deliverySelect.value;
+        const gift = giftChk.checked;
+        const organic = organicChk.checked;
+        const total = parseInt(totalSpan.innerText);
         document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
-        document.querySelectorAll('.field-error').forEach(e => e.textContent = '');
+        document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
-        const data = { name, email, message };
-        const isLoggedIn = <?= isset($_SESSION['user_id']) ? 'true' : 'false' ?>;
-        const url = isLoggedIn ? 'index.php?route=contact&_method=PUT' : 'index.php?route=contact';
-        const method = 'POST';
-
+        const data = { name, email, product, quantity, delivery, gift, organic, total };
         try {
-            const res = await fetch(url, {
-                method: method,
+            const res = await fetch('index.php?route=order', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             const result = await res.json();
-            if (res.ok) {
-                if (result.status === 'created') {
-                    document.getElementById('new-login').textContent = result.login;
-                    document.getElementById('new-password').textContent = result.password;
-                    credsModal.classList.add('active');
-                }
-                messageDiv.textContent = isLoggedIn ? 'Данные обновлены!' : 'Заявка отправлена!';
+            if (res.ok && result.status === 'created') {
+                messageDiv.innerText = 'Заказ оформлен!';
                 messageDiv.className = 'form-message success';
-                setTimeout(() => messageDiv.className = 'form-message', 3000);
+                if (result.login && result.password) {
+                    document.getElementById('new-login').innerText = result.login;
+                    document.getElementById('new-password').innerText = result.password;
+                    document.getElementById('creds-modal').classList.add('active');
+                }
+                orderForm.reset();
+                quantitySlider.value = 1;
+                calcTotal();
+                <?php if (isset($_SESSION['user_id'])) echo 'loadOrders();'; ?>
             } else {
                 if (result.errors) {
-                    for (const [field, error] of Object.entries(result.errors)) {
+                    for (const [field, err] of Object.entries(result.errors)) {
                         const group = document.getElementById(`${field}-group`);
                         if (group) {
                             group.classList.add('error');
-                            group.querySelector('.field-error').textContent = error;
+                            group.querySelector('.field-error').innerText = err;
                         }
                     }
-                } else {
-                    messageDiv.textContent = result.error || 'Ошибка';
-                    messageDiv.className = 'form-message error';
-                }
+                } else messageDiv.innerText = result.error || 'Ошибка';
             }
-        } catch (err) {
-            messageDiv.textContent = 'Ошибка сети. Проверьте соединение.';
-            messageDiv.className = 'form-message error';
-        }
-    });
+        } catch(err) { messageDiv.innerText = 'Ошибка сети'; }
+        setTimeout(() => messageDiv.innerText = '', 3000);
+    };
 
     // Закрытие модалки с данными
-    function closeCredsModal() { credsModal.classList.remove('active'); }
-    if (closeCreds) closeCreds.addEventListener('click', closeCredsModal);
-    if (closeCredsBtn) closeCredsBtn.addEventListener('click', closeCredsModal);
-    window.addEventListener('click', (e) => { if (e.target === credsModal) closeCredsModal(); });
+    const credsModal = document.getElementById('creds-modal');
+    const closeCreds = document.getElementById('close-creds');
+    const closeCredsBtn = document.getElementById('close-creds-btn');
+    function closeModal() { credsModal.classList.remove('active'); }
+    if (closeCreds) closeCreds.onclick = closeModal;
+    if (closeCredsBtn) closeCredsBtn.onclick = closeModal;
+    window.onclick = (e) => { if (e.target === credsModal) closeModal(); };
 });
 </script>
 </body>
