@@ -623,7 +623,7 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
         <button class="btn" id="close-creds-btn">Закрыть</button>
     </div>
 </div>
-
+ <script src="script.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('contact-form');
