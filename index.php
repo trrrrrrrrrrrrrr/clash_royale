@@ -2,6 +2,28 @@
 session_start();
 require_once 'db.php';
 
+function cancelOrder($order_id, $user_id) {
+    $pdo = getDB();
+    try {
+        $stmt = $pdo->prepare("SELECT status FROM orders WHERE id = ? AND user_id = ?");
+        $stmt->execute([$order_id, $user_id]);
+        $order = $stmt->fetch();
+        if (!$order) {
+            return ['success' => false, 'error' => 'Заказ не найден'];
+        }
+        if ($order['status'] !== 'new') {
+            return ['success' => false, 'error' => 'Этот заказ уже нельзя отменить, обратитесь к администрации'];
+        }
+        $stmt = $pdo->prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?");
+        $stmt->execute([$order_id]);
+        return ['success' => true];
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+
+
 $route = $_GET['route'] ?? null;
 if ($route) {
     header('Content-Type: application/json');
@@ -218,6 +240,25 @@ if ($route) {
         }
         exit;
     }
+
+    // Маршрут для отмены заказа
+    if ($route === 'cancel' && $method === 'POST' && isset($_GET['id'])) {
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+        $orderId = (int)$_GET['id'];
+        $result = cancelOrder($orderId, $_SESSION['user_id']);
+        if ($result['success']) {
+            echo json_encode(['status' => 'cancelled']);
+        } else {
+            http_response_code(400);
+            echo json_encode(['error' => $result['error']]);
+        }
+        exit;
+    }
+
 
     http_response_code(404);
     echo json_encode(['error' => 'Route not found']);
