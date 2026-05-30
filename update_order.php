@@ -32,8 +32,8 @@ if (!$order || $order['status'] !== 'new') {
 $product = $_POST['product'] ?? '';
 $quantity = (int)($_POST['quantity'] ?? 0);
 $delivery = (int)($_POST['delivery'] ?? 0);
-$gift = isset($_POST['gift']) ? 1 : 0;
-$organic = isset($_POST['organic']) ? 1 : 0;
+$gift = isset($_POST['gift']) && $_POST['gift'] ? 1 : 0;
+$organic = isset($_POST['organic']) && $_POST['organic'] ? 1 : 0;
 $message = trim($_POST['message'] ?? '');
 
 // Валидация

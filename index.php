@@ -40,8 +40,8 @@ if ($route) {
             $product = trim($input['product'] ?? '');
             $quantity = (int)($input['quantity'] ?? 0);
             $delivery = (int)($input['delivery'] ?? 0);
-            $gift = isset($input['gift']) ? 1 : 0;
-            $organic = isset($input['organic']) ? 1 : 0;
+            $gift = (isset($input['gift']) && $input['gift']) ? 1 : 0;
+            $organic = (isset($input['organic']) && $input['organic']) ? 1 : 0;
             $total = (int)($input['total'] ?? 0);
 
             $errors = [];
