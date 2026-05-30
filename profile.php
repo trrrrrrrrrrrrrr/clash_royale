@@ -310,22 +310,34 @@ $updated = isset($_GET['updated']);
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Выход
-    const logoutBtn = document.getElementById('logout-btn');
-    const confirmModal = document.getElementById('confirm-logout-modal');
-    const closeLogout = document.getElementById('close-logout-confirm');
-    const confirmYes = document.getElementById('confirm-logout-yes');
-    const confirmNo = document.getElementById('confirm-logout-no');
-    if (logoutBtn) logoutBtn.onclick = () => confirmModal.classList.add('active');
-    function closeConfirm() { confirmModal.classList.remove('active'); }
-    if (closeLogout) closeLogout.onclick = closeConfirm;
-    if (confirmNo) confirmNo.onclick = closeConfirm;
-    if (confirmYes) confirmYes.onclick = () => { window.location.href = 'logout.php'; };
-    window.onclick = (e) => { if (e.target === confirmModal) closeConfirm(); };
+<!-- Модальное окно подтверждения отмены заказа -->
+<div id="confirm-cancel-modal" class="modal">
+    <div class="modal-card">
+        <span class="close" id="close-cancel-confirm">&times;</span>
+        <h3>Подтверждение отмены</h3>
+        <p>Вы уверены, что хотите отменить этот заказ? Это действие нельзя отменить.</p>
+        <div class="confirm-buttons">
+            <button id="confirm-cancel-yes" class="btn">Да, отменить</button>
+            <button id="confirm-cancel-no" class="btn" style="background:#999;">Нет</button>
+        </div>
+    </div>
+</div>
 
-    // Инфо-модалка
+
+<script>
+const logoutBtn = document.getElementById('logout-btn');
+    const confirmLogoutModal = document.getElementById('confirm-logout-modal');
+    const closeLogout = document.getElementById('close-logout-confirm');
+    const confirmLogoutYes = document.getElementById('confirm-logout-yes');
+    const confirmLogoutNo = document.getElementById('confirm-logout-no');
+    if (logoutBtn) logoutBtn.onclick = () => confirmLogoutModal.classList.add('active');
+    function closeLogoutModal() { confirmLogoutModal.classList.remove('active'); }
+    if (closeLogout) closeLogout.onclick = closeLogoutModal;
+    if (confirmLogoutNo) confirmLogoutNo.onclick = closeLogoutModal;
+    if (confirmLogoutYes) confirmLogoutYes.onclick = () => { window.location.href = 'logout.php'; };
+    window.onclick = (e) => { if (e.target === confirmLogoutModal) closeLogoutModal(); };
+
+    // ------ Инфо-модалка (уведомления) ------
     const infoModal = document.getElementById('info-modal');
     const infoMsg = document.getElementById('info-message-text');
     const closeInfo = document.getElementById('close-info');
@@ -336,12 +348,28 @@ document.addEventListener('DOMContentLoaded', function() {
     if (infoOk) infoOk.onclick = closeInfoModal;
     window.onclick = (e) => { if (e.target === infoModal) closeInfoModal(); };
 
-    // Отмена заказа (через API)
+    // ------ Подтверждение отмены заказа ------
+    let pendingCancelOrderId = null;
+    const confirmCancelModal = document.getElementById('confirm-cancel-modal');
+    const closeCancelConfirm = document.getElementById('close-cancel-confirm');
+    const confirmCancelYes = document.getElementById('confirm-cancel-yes');
+    const confirmCancelNo = document.getElementById('confirm-cancel-no');
+    function closeCancelModal() { confirmCancelModal.classList.remove('active'); pendingCancelOrderId = null; }
+    if (closeCancelConfirm) closeCancelConfirm.onclick = closeCancelModal;
+    if (confirmCancelNo) confirmCancelNo.onclick = closeCancelModal;
+    window.onclick = (e) => { if (e.target === confirmCancelModal) closeCancelModal(); };
+
     document.querySelectorAll('.cancel-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const orderId = btn.dataset.id;
+        btn.addEventListener('click', () => {
+            pendingCancelOrderId = btn.dataset.id;
+            confirmCancelModal.classList.add('active');
+        });
+    });
+    if (confirmCancelYes) {
+        confirmCancelYes.onclick = async () => {
+            if (!pendingCancelOrderId) return;
             try {
-                const res = await fetch(`index.php?route=cancel&id=${orderId}`, { method: 'POST' });
+                const res = await fetch(`index.php?route=cancel&id=${pendingCancelOrderId}`, { method: 'POST' });
                 const data = await res.json();
                 if (res.ok && data.status === 'cancelled') {
                     showInfo('Заказ отменён. Страница будет обновлена.');
@@ -350,8 +378,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     showInfo(data.error || 'Не удалось отменить заказ');
                 }
             } catch(err) { showInfo('Ошибка сети'); }
-        });
-    });
+            closeCancelModal();
+        };
+    }
 
     // Редактирование: загрузка данных
     const editModal = document.getElementById('edit-modal');
