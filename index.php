@@ -967,11 +967,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Закрытие модалки с данными
     const credsModal = document.getElementById('creds-modal');
-    const closeCreds = document.getElementById('close-creds');
-    const closeCredsBtn = document.getElementById('close-creds-btn');
-    function closeModal() { credsModal.classList.remove('active'); }
-    if (closeCreds) closeCreds.onclick = closeModal;
-    if (closeCredsBtn) closeCredsBtn.onclick = closeModal;
+const closeCreds = document.getElementById('close-creds');
+const closeCredsBtn = document.getElementById('close-creds-btn');
+function closeModalAndReload() {
+    credsModal.classList.remove('active');
+    // Небольшая задержка, чтобы модалка успела закрыться, затем перезагрузка
+    setTimeout(() => location.reload(), 150);
+}
+if (closeCreds) closeCreds.onclick = closeModalAndReload;
+if (closeCredsBtn) closeCredsBtn.onclick = closeModalAndReload;
     
 });
 </script>
