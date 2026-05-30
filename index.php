@@ -2,34 +2,32 @@
 session_start();
 require_once 'db.php';
 
-header('Content-Type: text/html; charset=UTF-8');
-
-// Определяем, является ли запрос API-вызовом
-$is_api = isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false;
-$method = $_SERVER['REQUEST_METHOD'];
-$path = $_SERVER['PATH_INFO'] ?? '';
-$parts = explode('/', trim($path, '/'));
-
-// Если это API-запрос
-if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false)) {
+// Определяем, API ли это (по параметру route)
+$route = $_GET['route'] ?? null;
+if ($route) {
     header('Content-Type: application/json');
-    $input = json_decode(file_get_contents('php://input'), true);
-    if (!$input && $method !== 'GET') {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid JSON']);
-        exit;
+    $method = $_SERVER['REQUEST_METHOD'];
+
+    // Эмуляция PUT/DELETE через POST + _method
+    if ($method === 'POST' && isset($_POST['_method'])) {
+        $method = strtoupper($_POST['_method']);
+    }
+    $input = [];
+    if ($method === 'POST' || $method === 'PUT') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input && $method === 'POST') {
+            $input = $_POST; // на случай, если пришло form-data
+        }
     }
 
     $pdo = getDB();
 
-    // Маршрутизация REST
-    if ($method === 'POST' && $parts[0] === 'contact') {
-        // Создание новой заявки (неавторизованный пользователь)
+    // Маршрут: создание заявки
+    if ($route === 'contact' && $method === 'POST') {
         $name = trim($input['name'] ?? '');
         $email = trim($input['email'] ?? '');
         $message = trim($input['message'] ?? '');
 
-        // Валидация
         $errors = [];
         if (empty($name)) $errors['name'] = 'Имя обязательно';
         elseif (strlen($name) > 100) $errors['name'] = 'Имя не длиннее 100 символов';
@@ -43,7 +41,6 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
             exit;
         }
 
-        // Генерация логина и пароля
         $login = generateUniqueLogin($pdo);
         $plainPassword = generatePassword();
         $passwordHash = password_hash($plainPassword, PASSWORD_DEFAULT);
@@ -53,7 +50,6 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
             $stmt->execute([$login, $passwordHash, $name, $email, $message]);
             $userId = $pdo->lastInsertId();
 
-            // Автоматический вход
             $_SESSION['user_id'] = $userId;
             $_SESSION['login'] = $login;
 
@@ -61,8 +57,7 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
             echo json_encode([
                 'status' => 'created',
                 'login' => $login,
-                'password' => $plainPassword,
-                'profile_url' => '/profile.php'
+                'password' => $plainPassword
             ]);
         } catch (Exception $e) {
             http_response_code(500);
@@ -71,8 +66,8 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
         exit;
     }
 
-    if ($method === 'PUT' && $parts[0] === 'contact' && isset($parts[1]) && is_numeric($parts[1])) {
-        // Обновление заявки (только для авторизованного пользователя)
+    // Маршрут: обновление заявки (требует авторизации)
+    if ($route === 'contact' && $method === 'PUT') {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
             echo json_encode(['error' => 'Unauthorized']);
@@ -107,8 +102,8 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
         exit;
     }
 
-    if ($method === 'POST' && $parts[0] === 'login') {
-        // Авторизация
+    // Маршрут: вход
+    if ($route === 'login' && $method === 'POST') {
         $login = trim($input['login'] ?? '');
         $password = $input['password'] ?? '';
         if (empty($login) || empty($password)) {
@@ -130,8 +125,8 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
         exit;
     }
 
-    if ($method === 'GET' && $parts[0] === 'profile') {
-        // Получение данных профиля авторизованного пользователя
+    // Маршрут: получение профиля
+    if ($route === 'profile' && $method === 'GET') {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
             echo json_encode(['error' => 'Unauthorized']);
@@ -150,7 +145,7 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
     }
 
     http_response_code(404);
-    echo json_encode(['error' => 'Not found']);
+    echo json_encode(['error' => 'Route not found']);
     exit;
 }
 
@@ -534,6 +529,8 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
             </button>
         </div>
     </section>
+
+    
 <section id="contact" class="section">
     <div class="section-title">
         <h2>Свяжитесь с фермером</h2>
@@ -582,7 +579,7 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
             </ul>
             <div class="quote-section">
                 <p class="inspiration-quote">
-                   © Ковган Ларион | Эдуард Мхитарян
+                   © Эдуард Мхитарян
                 </p>
             </div>
             <div class="social-links">
@@ -590,7 +587,7 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
                 <a href="#"><i class="fab fa-telegram"></i></a>
                 <a href="#"><i class="fab fa-instagram"></i></a>
             </div>
-            <div class="copyright">© 2023 Весёлая Ферма "Клеш Рояль". Все права защищены.</div>
+            <div class="copyright">© 2023 Весёлая Ферма "Клеш Рояль".</div>
         </div>
 </footer>
 
@@ -599,14 +596,8 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
         <span class="close" id="close-login-modal">&times;</span>
         <h3>Вход в систему</h3>
         <form id="login-form">
-            <div class="form-group">
-                <label>Логин</label>
-                <input type="text" id="login-login" required>
-            </div>
-            <div class="form-group">
-                <label>Пароль</label>
-                <input type="password" id="login-password" required>
-            </div>
+            <div class="form-group"><label>Логин</label><input type="text" id="login-login" required></div>
+            <div class="form-group"><label>Пароль</label><input type="password" id="login-password" required></div>
             <button type="submit" class="btn">Войти</button>
             <div id="login-error" style="color: red; margin-top: 10px;"></div>
         </form>
@@ -623,6 +614,8 @@ if ($is_api || ($method !== 'GET' && !empty($_SERVER['CONTENT_TYPE']) && strpos(
         <button class="btn" id="close-creds-btn">Закрыть</button>
     </div>
 </div>
+
+
  <script src="script.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -636,16 +629,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeCredsBtn = document.getElementById('close-creds-btn');
 
     // Открытие модалки входа
-    if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-            loginModal.classList.add('active');
-        });
-    }
+    if (loginBtn) loginBtn.addEventListener('click', () => loginModal.classList.add('active'));
     function closeLoginModal() { loginModal.classList.remove('active'); }
     if (closeLogin) closeLogin.addEventListener('click', closeLoginModal);
     window.addEventListener('click', (e) => { if (e.target === loginModal) closeLoginModal(); });
 
-    // Форма входа
+    // Логин
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -654,7 +643,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const password = document.getElementById('login-password').value;
             const errorDiv = document.getElementById('login-error');
             try {
-                const res = await fetch('/index.php', {
+                const res = await fetch('index.php?route=login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ login, password })
@@ -673,30 +662,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Загрузка профиля для авторизованного пользователя
     <?php if (isset($_SESSION['user_id'])): ?>
-        fetch('/index.php', {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        }).then(res => res.json()).then(data => {
-            if (data.name) document.getElementById('name').value = data.name;
-            if (data.email) document.getElementById('email').value = data.email;
-            if (data.message) document.getElementById('message').value = data.message;
-        });
+        fetch('index.php?route=profile')
+            .then(res => res.json())
+            .then(data => {
+                if (data.name) document.getElementById('name').value = data.name;
+                if (data.email) document.getElementById('email').value = data.email;
+                if (data.message) document.getElementById('message').value = data.message;
+            })
+            .catch(console.error);
     <?php endif; ?>
 
-    // Отправка формы через Fetch
+    // Отправка формы (POST или PUT)
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('name').value.trim();
         const email = document.getElementById('email').value.trim();
         const message = document.getElementById('message').value.trim();
 
-        // Очистка ошибок
         document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
         document.querySelectorAll('.field-error').forEach(e => e.textContent = '');
 
         const data = { name, email, message };
-        const method = <?= isset($_SESSION['user_id']) ? "'PUT'" : "'POST'" ?>;
-        const url = <?= isset($_SESSION['user_id']) ? "'/index.php/contact/'" . $_SESSION['user_id'] : "'/index.php/contact'" ?>;
+        const isLoggedIn = <?= isset($_SESSION['user_id']) ? 'true' : 'false' ?>;
+        const url = isLoggedIn ? 'index.php?route=contact&_method=PUT' : 'index.php?route=contact';
+        const method = 'POST';
 
         try {
             const res = await fetch(url, {
@@ -707,16 +696,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await res.json();
             if (res.ok) {
                 if (result.status === 'created') {
-                    // Показываем логин/пароль
                     document.getElementById('new-login').textContent = result.login;
                     document.getElementById('new-password').textContent = result.password;
                     credsModal.classList.add('active');
                 }
-                messageDiv.textContent = method === 'POST' ? 'Заявка отправлена!' : 'Данные обновлены!';
+                messageDiv.textContent = isLoggedIn ? 'Данные обновлены!' : 'Заявка отправлена!';
                 messageDiv.className = 'form-message success';
                 setTimeout(() => messageDiv.className = 'form-message', 3000);
             } else {
-                // Показываем ошибки валидации
                 if (result.errors) {
                     for (const [field, error] of Object.entries(result.errors)) {
                         const group = document.getElementById(`${field}-group`);
@@ -731,12 +718,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         } catch (err) {
-            messageDiv.textContent = 'Ошибка сети';
+            messageDiv.textContent = 'Ошибка сети. Проверьте соединение.';
             messageDiv.className = 'form-message error';
         }
     });
 
-    // Закрытие модалки с логином/паролем
+    // Закрытие модалки с данными
     function closeCredsModal() { credsModal.classList.remove('active'); }
     if (closeCreds) closeCreds.addEventListener('click', closeCredsModal);
     if (closeCredsBtn) closeCredsBtn.addEventListener('click', closeCredsModal);
