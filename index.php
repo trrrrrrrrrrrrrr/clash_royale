@@ -15,48 +15,51 @@ if ($route) {
     }
     $pdo = getDB();
 
-    // Создание заказа (неавторизованный -> регистрация)
+    // Создание заказа
     if ($route === 'order' && $method === 'POST') {
-        $name = trim($input['name'] ?? '');
-        $phone = trim($input['phone'] ?? '');
-        $email = trim($input['email'] ?? '');
-        $message = trim($input['message'] ?? '');
-        $product = trim($input['product'] ?? '');
-        $quantity = (int)($input['quantity'] ?? 0);
-        $delivery = (int)($input['delivery'] ?? 0);
-        $gift = isset($input['gift']) ? 1 : 0;
-        $organic = isset($input['organic']) ? 1 : 0;
-        $total = (int)($input['total'] ?? 0);
-
-        $errors = [];
-        if (empty($name)) $errors['name'] = 'Имя обязательно';
-        if (empty($phone)) $errors['phone'] = 'Телефон обязателен';
-        elseif (!preg_match('/^[\d\s\-\+\(\)]{10,20}$/', $phone)) $errors['phone'] = 'Некорректный телефон';
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Некорректный email';
-        if (empty($product)) $errors['product'] = 'Выберите продукт';
-        if ($quantity < 1) $errors['quantity'] = 'Количество не менее 1';
-        if ($total <= 0) $errors['total'] = 'Некорректная сумма';
-
-        if (!empty($errors)) {
-            http_response_code(400);
-            echo json_encode(['errors' => $errors]);
-            exit;
-        }
-
-        $pdo->beginTransaction();
         try {
+            $name = trim($input['name'] ?? '');
+            $phone = trim($input['phone'] ?? '');
+            $email = trim($input['email'] ?? '');
+            $message = trim($input['message'] ?? '');
+            $consent = isset($input['consent']) ? 1 : 0;
+            $product = trim($input['product'] ?? '');
+            $quantity = (int)($input['quantity'] ?? 0);
+            $delivery = (int)($input['delivery'] ?? 0);
+            $gift = isset($input['gift']) ? 1 : 0;
+            $organic = isset($input['organic']) ? 1 : 0;
+            $total = (int)($input['total'] ?? 0);
+
+            $errors = [];
+            if (empty($name)) $errors['name'] = 'Имя обязательно';
+            if (empty($phone)) $errors['phone'] = 'Телефон обязателен';
+            elseif (!preg_match('/^[\d\s\-\+\(\)]{10,20}$/', $phone)) $errors['phone'] = 'Некорректный телефон';
+            if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Некорректный email';
+            if (!$consent) $errors['consent'] = 'Необходимо согласие на обработку данных';
+            if (empty($product)) $errors['product'] = 'Выберите продукт';
+            if ($quantity < 1) $errors['quantity'] = 'Количество не менее 1';
+            if ($total <= 0) $errors['total'] = 'Некорректная сумма';
+
+            if (!empty($errors)) {
+                http_response_code(400);
+                echo json_encode(['errors' => $errors]);
+                exit;
+            }
+
+            $pdo->beginTransaction();
+
             if (isset($_SESSION['user_id'])) {
                 $userId = $_SESSION['user_id'];
                 $login = null;
                 $plainPassword = null;
-                $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, message=? WHERE id=?");
-                $stmt->execute([$name, $phone, $email, $message, $userId]);
+                $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, message=?, consent=? WHERE id=?");
+                $stmt->execute([$name, $phone, $email, $message, $consent, $userId]);
             } else {
                 $login = generateUniqueLogin($pdo);
                 $plainPassword = generatePassword();
                 $hash = password_hash($plainPassword, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO users (login, password_hash, name, phone, email, message) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$login, $hash, $name, $phone, $email, $message]);
+                $stmt = $pdo->prepare("INSERT INTO users (login, password_hash, name, phone, email, message, consent) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$login, $hash, $name, $phone, $email, $message, $consent]);
                 $userId = $pdo->lastInsertId();
                 $_SESSION['user_id'] = $userId;
                 $_SESSION['login'] = $login;
@@ -75,70 +78,72 @@ if ($route) {
             http_response_code(201);
             echo json_encode($response);
         } catch (Exception $e) {
-            $pdo->rollBack();
+            if (isset($pdo)) $pdo->rollBack();
             http_response_code(500);
-            echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+            echo json_encode(['error' => $e->getMessage()]);
         }
         exit;
     }
 
-    // Обновление заказа (только авторизованный)
+    // Обновление заказа (аналогично добавить поле consent)
     if ($route === 'order' && $method === 'PUT' && isset($_GET['id'])) {
-        if (!isset($_SESSION['user_id'])) {
-            http_response_code(401);
-            echo json_encode(['error' => 'Unauthorized']);
-            exit;
-        }
-        $orderId = (int)$_GET['id'];
-        $userId = $_SESSION['user_id'];
-        $product = trim($input['product'] ?? '');
-        $quantity = (int)($input['quantity'] ?? 0);
-        $delivery = (int)($input['delivery'] ?? 0);
-        $gift = isset($input['gift']) ? 1 : 0;
-        $organic = isset($input['organic']) ? 1 : 0;
-        $total = (int)($input['total'] ?? 0);
-        $name = trim($input['name'] ?? '');
-        $phone = trim($input['phone'] ?? '');
-        $email = trim($input['email'] ?? '');
-        $message = trim($input['message'] ?? '');
-
-        $errors = [];
-        if (empty($product)) $errors['product'] = 'Выберите продукт';
-        if ($quantity < 1) $errors['quantity'] = 'Количество не менее 1';
-        if ($total <= 0) $errors['total'] = 'Некорректная сумма';
-
-        if (!empty($errors)) {
-            http_response_code(400);
-            echo json_encode(['errors' => $errors]);
-            exit;
-        }
-
-        $stmt = $pdo->prepare("SELECT user_id FROM orders WHERE id = ?");
-        $stmt->execute([$orderId]);
-        $order = $stmt->fetch();
-        if (!$order || $order['user_id'] != $userId) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Access denied']);
-            exit;
-        }
-
-        $pdo->beginTransaction();
         try {
+            if (!isset($_SESSION['user_id'])) {
+                http_response_code(401);
+                echo json_encode(['error' => 'Unauthorized']);
+                exit;
+            }
+            $orderId = (int)$_GET['id'];
+            $userId = $_SESSION['user_id'];
+            $product = trim($input['product'] ?? '');
+            $quantity = (int)($input['quantity'] ?? 0);
+            $delivery = (int)($input['delivery'] ?? 0);
+            $gift = isset($input['gift']) ? 1 : 0;
+            $organic = isset($input['organic']) ? 1 : 0;
+            $total = (int)($input['total'] ?? 0);
+            $name = trim($input['name'] ?? '');
+            $phone = trim($input['phone'] ?? '');
+            $email = trim($input['email'] ?? '');
+            $message = trim($input['message'] ?? '');
+            $consent = isset($input['consent']) ? 1 : 0;
+
+            $errors = [];
+            if (empty($product)) $errors['product'] = 'Выберите продукт';
+            if ($quantity < 1) $errors['quantity'] = 'Количество не менее 1';
+            if ($total <= 0) $errors['total'] = 'Некорректная сумма';
+            if (!$consent) $errors['consent'] = 'Необходимо согласие на обработку данных';
+
+            if (!empty($errors)) {
+                http_response_code(400);
+                echo json_encode(['errors' => $errors]);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("SELECT user_id FROM orders WHERE id = ?");
+            $stmt->execute([$orderId]);
+            $order = $stmt->fetch();
+            if (!$order || $order['user_id'] != $userId) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Access denied']);
+                exit;
+            }
+
+            $pdo->beginTransaction();
             $stmt = $pdo->prepare("UPDATE orders SET product_type=?, quantity=?, delivery_cost=?, gift_wrap=?, organic_cert=?, total_price=? WHERE id=?");
             $stmt->execute([$product, $quantity, $delivery, $gift, $organic, $total, $orderId]);
-            $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, message=? WHERE id=?");
-            $stmt->execute([$name, $phone, $email, $message, $userId]);
+            $stmt = $pdo->prepare("UPDATE users SET name=?, phone=?, email=?, message=?, consent=? WHERE id=?");
+            $stmt->execute([$name, $phone, $email, $message, $consent, $userId]);
             $pdo->commit();
             echo json_encode(['status' => 'updated']);
         } catch (Exception $e) {
-            $pdo->rollBack();
+            if (isset($pdo)) $pdo->rollBack();
             http_response_code(500);
-            echo json_encode(['error' => 'Update failed']);
+            echo json_encode(['error' => $e->getMessage()]);
         }
         exit;
     }
 
-    // Получение списка заказов пользователя
+    // Остальные маршруты (GET orders, GET order, POST login) без изменений
     if ($route === 'orders' && $method === 'GET') {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
@@ -152,7 +157,6 @@ if ($route) {
         exit;
     }
 
-    // Получение одного заказа и данных пользователя
     if ($route === 'order' && $method === 'GET' && isset($_GET['id'])) {
         if (!isset($_SESSION['user_id'])) {
             http_response_code(401);
@@ -160,7 +164,7 @@ if ($route) {
             exit;
         }
         $orderId = (int)$_GET['id'];
-        $stmt = $pdo->prepare("SELECT o.*, u.name, u.phone, u.email, u.message FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ? AND o.user_id = ?");
+        $stmt = $pdo->prepare("SELECT o.*, u.name, u.phone, u.email, u.message, u.consent FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ? AND o.user_id = ?");
         $stmt->execute([$orderId, $_SESSION['user_id']]);
         $data = $stmt->fetch();
         if ($data) {
@@ -172,7 +176,6 @@ if ($route) {
         exit;
     }
 
-    // Вход
     if ($route === 'login' && $method === 'POST') {
         $login = trim($input['login'] ?? '');
         $password = $input['password'] ?? '';
@@ -321,6 +324,44 @@ if ($route) {
             border-radius: 16px;
         }
 
+         .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.3s;
+        }
+        .modal.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-card {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 450px;
+            width: 90%;
+            position: relative;
+            margin: auto;
+            text-align: center;
+        }
+        .modal-card .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+        }
+
     </style>
 </head>
 <body>
@@ -336,7 +377,7 @@ if ($route) {
         <ul class="nav-links">
             <li><a href="#"><i class="fas fa-home"></i> Главная</a></li>
             <li><a href="#products"><i class="fas fa-carrot"></i> Урожай</a></li>
-            <li><a href="#calculator"><i class="fas fa-calculator"></i> Калькулятор</a></li>
+            
             <li><a href="#gallery"><i class="fas fa-images"></i> Галерея</a></li>
             <li><a href="#contact"><i class="fas fa-address-book"></i> Контакты</a></li>
         </ul>
@@ -587,6 +628,7 @@ if ($route) {
 
     <div class="calculator" style="max-width:800px; margin:0 auto;">
         <form id="orderForm" class="calculator-form">
+            <!-- Поля (все с суффиксом _order) -->
             <div class="form-group" id="name-group">
                 <label for="name_order">Ваше имя *</label>
                 <input type="text" id="name_order" name="name" required placeholder="Иван Петров">
@@ -632,6 +674,14 @@ if ($route) {
                     <label class="option-checkbox"><input type="checkbox" id="gift_order" value="200"> Подарочная упаковка (+200 ₽)</label>
                     <label class="option-checkbox"><input type="checkbox" id="organic_order" value="150"> Сертификат "Био" (+150 ₽)</label>
                 </div>
+            </div>
+            <!-- НОВЫЙ чекбокс согласия (в виде красивой кнопки) -->
+            <div class="form-group full-width">
+                <label class="option-checkbox">
+                    <input type="checkbox" id="consent_order">
+                    <span>Я согласен на обработку персональных данных *</span>
+                </label>
+                <div class="field-error" id="consent-error"></div>
             </div>
             <div class="form-group" id="message-group">
                 <label for="message_order">Пожелания к заказу</label>
@@ -705,11 +755,10 @@ if ($route) {
 </div>
 
 
-
  <script src="script.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ========== КАЛЬКУЛЯТОР В ФОРМЕ (независимый, со своими ID) ==========
+    // Калькулятор
     const productSelect = document.getElementById('product_order');
     const quantitySlider = document.getElementById('quantity_order');
     const quantityVal = document.getElementById('quantityVal_order');
@@ -728,7 +777,6 @@ document.addEventListener('DOMContentLoaded', function() {
         totalSpan.innerText = total + ' ₽';
         if (quantityVal) quantityVal.innerText = qty;
     }
-
     if (productSelect) {
         productSelect.addEventListener('change', calcTotal);
         quantitySlider.addEventListener('input', calcTotal);
@@ -738,7 +786,7 @@ document.addEventListener('DOMContentLoaded', function() {
         calcTotal();
     }
 
-    // ========== АВТОРИЗАЦИЯ ==========
+    // Авторизация
     const loginBtn = document.getElementById('login-btn');
     const loginModal = document.getElementById('login-modal');
     const closeLogin = document.getElementById('close-login');
@@ -765,7 +813,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // ========== ЗАГРУЗКА ЗАКАЗОВ (для авторизованного) ==========
+    // Загрузка заказов
     <?php if (isset($_SESSION['user_id'])): ?>
     async function loadOrders() {
         const container = document.getElementById('orders-list');
@@ -802,6 +850,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('phone_order').value = data.phone || '';
             document.getElementById('email_order').value = data.email || '';
             document.getElementById('message_order').value = data.message || '';
+            document.getElementById('consent_order').checked = data.consent == 1;
             for (let i=0; i<productSelect.options.length; i++) {
                 if (productSelect.options[i].value === data.product_type) {
                     productSelect.selectedIndex = i;
@@ -823,6 +872,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     phone: document.getElementById('phone_order').value.trim(),
                     email: document.getElementById('email_order').value.trim(),
                     message: document.getElementById('message_order').value.trim(),
+                    consent: document.getElementById('consent_order').checked,
                     product: productSelect.value,
                     quantity: quantitySlider.value,
                     delivery: deliverySelect.value,
@@ -848,7 +898,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadOrders();
     <?php endif; ?>
 
-    // ========== ОТПРАВКА НОВОГО ЗАКАЗА ==========
+    // Отправка нового заказа
     const orderForm = document.getElementById('orderForm');
     const messageDiv = document.getElementById('form-message');
     if (orderForm) {
@@ -858,6 +908,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const phone = document.getElementById('phone_order').value.trim();
             const email = document.getElementById('email_order').value.trim();
             const message = document.getElementById('message_order').value.trim();
+            const consent = document.getElementById('consent_order').checked;
             const product = productSelect.value;
             const quantity = quantitySlider.value;
             const delivery = deliverySelect.value;
@@ -865,11 +916,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const organic = organicChk.checked;
             const total = parseInt(totalSpan.innerText);
 
-            // Очистка ошибок
             document.querySelectorAll('.form-group').forEach(g => g.classList.remove('error'));
             document.querySelectorAll('.field-error').forEach(e => e.innerText = '');
 
-            const data = { name, phone, email, message, product, quantity, delivery, gift, organic, total };
+            const data = { name, phone, email, message, consent, product, quantity, delivery, gift, organic, total };
             try {
                 const res = await fetch('index.php?route=order', {
                     method: 'POST',
@@ -892,10 +942,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     if (result.errors) {
                         for (const [field, err] of Object.entries(result.errors)) {
-                            const group = document.getElementById(`${field}-group`);
-                            if (group) {
-                                group.classList.add('error');
-                                group.querySelector('.field-error').innerText = err;
+                            if (field === 'consent') {
+                                document.getElementById('consent-error').innerText = err;
+                            } else {
+                                const group = document.getElementById(`${field}-group`);
+                                if (group) {
+                                    group.classList.add('error');
+                                    group.querySelector('.field-error').innerText = err;
+                                }
                             }
                         }
                     } else messageDiv.innerText = result.error || 'Ошибка';
@@ -905,7 +959,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // ========== ЗАКРЫТИЕ МОДАЛКИ С ДАННЫМИ ==========
+    // Закрытие модалки с данными
     const credsModal = document.getElementById('creds-modal');
     const closeCreds = document.getElementById('close-creds');
     const closeCredsBtn = document.getElementById('close-creds-btn');
