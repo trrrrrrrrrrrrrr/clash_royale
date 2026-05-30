@@ -647,9 +647,9 @@ if ($route) {
                 </select>
                 <div class="field-error"></div>
             </div>
-            <div class="form-group" id="quantity-group">
-                <label for="quantity_order">Количество: <span id="quantityVal_order">1</span></label>
-                <input type="range" id="quantity_order" min="1" max="100" value="1">
+           <div class="form-group" id="quantity-group">
+                <label for="quantity_order">Количество (1–100):</label>
+                <input type="number" id="quantity_order" min="1" max="100" value="1" step="1" required>
                 <div class="field-error"></div>
             </div>
             <div class="form-group" id="delivery-group">
@@ -745,31 +745,30 @@ if ($route) {
 document.addEventListener('DOMContentLoaded', function() {
     // Калькулятор
     const productSelect = document.getElementById('product_order');
-    const quantitySlider = document.getElementById('quantity_order');
-    const quantityVal = document.getElementById('quantityVal_order');
+    const quantityInput = document.getElementById('quantity_order');
     const deliverySelect = document.getElementById('delivery_order');
     const giftChk = document.getElementById('gift_order');
     const organicChk = document.getElementById('organic_order');
     const totalSpan = document.getElementById('total_price_order');
 
-    function calcTotal() {
-        if (!productSelect || !quantitySlider || !deliverySelect || !totalSpan) return;
-        let price = parseInt(productSelect.options[productSelect.selectedIndex].dataset.price);
-        let qty = parseInt(quantitySlider.value);
-        let delivery = parseInt(deliverySelect.value);
-        let extra = (giftChk.checked ? 200 : 0) + (organicChk.checked ? 150 : 0);
-        let total = (price * qty) + delivery + extra;
-        totalSpan.innerText = total + ' ₽';
-        if (quantityVal) quantityVal.innerText = qty;
-    }
-    if (productSelect) {
-        productSelect.addEventListener('change', calcTotal);
-        quantitySlider.addEventListener('input', calcTotal);
-        deliverySelect.addEventListener('change', calcTotal);
-        if (giftChk) giftChk.addEventListener('change', calcTotal);
-        if (organicChk) organicChk.addEventListener('change', calcTotal);
-        calcTotal();
-    }
+   function calcTotal() {
+    if (!productSelect || !quantityInput || !deliverySelect || !totalSpan) return;
+    let price = parseInt(productSelect.options[productSelect.selectedIndex].dataset.price);
+    let qty = parseInt(quantityInput.value);
+    if (isNaN(qty) || qty < 1) qty = 1;
+    let delivery = parseInt(deliverySelect.value);
+    let extra = (giftChk.checked ? 200 : 0) + (organicChk.checked ? 150 : 0);
+    let total = (price * qty) + delivery + extra;
+    totalSpan.innerText = total + ' ₽';
+}
+   if (productSelect) {
+    productSelect.addEventListener('change', calcTotal);
+    quantityInput.addEventListener('input', calcTotal);
+    deliverySelect.addEventListener('change', calcTotal);
+    if (giftChk) giftChk.addEventListener('change', calcTotal);
+    if (organicChk) organicChk.addEventListener('change', calcTotal);
+    calcTotal();
+}
 
     // Авторизация
     const loginBtn = document.getElementById('login-btn');
@@ -811,7 +810,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const message = document.getElementById('message_order').value.trim();
             const consent = document.getElementById('consent_order').checked;
             const product = productSelect.value;
-            const quantity = quantitySlider.value;
+            const quantity = parseInt(quantityInput.value);
             const delivery = deliverySelect.value;
             const gift = giftChk.checked;
             const organic = organicChk.checked;
@@ -837,7 +836,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         document.getElementById('creds-modal').classList.add('active');
                     }
                     orderForm.reset();
-                    quantitySlider.value = 1;
+                    quantityInput.value = 1;
                     calcTotal();
                 } else {
                     if (result.errors) {
