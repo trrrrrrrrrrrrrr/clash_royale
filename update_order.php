@@ -55,18 +55,19 @@ $priceMap = [
 $basePrice = $priceMap[$product] ?? 0;
 $total = ($basePrice * $quantity) + $delivery + ($gift ? 200 : 0) + ($organic ? 150 : 0);
 
-// Обновляем заказ
+// Обновляем заказ (без message)
 $stmt = $pdo->prepare("
     UPDATE orders 
     SET product_type = ?, quantity = ?, delivery_cost = ?, gift_wrap = ?, 
-        organic_cert = ?, total_price = ?, message = ?
+        organic_cert = ?, total_price = ?
     WHERE id = ? AND user_id = ?
 ");
-$stmt->execute([$product, $quantity, $delivery, $gift, $organic, $total, $message, $orderId, $userId]);
+$stmt->execute([$product, $quantity, $delivery, $gift, $organic, $total, $orderId, $userId]);
 
-if ($stmt->rowCount()) {
-    header('Location: profile.php?updated=1');
-} else {
-    die('Ошибка обновления: заказ не изменён');
-}
+// Обновляем пожелания в таблице users
+$stmtMsg = $pdo->prepare("UPDATE users SET message = ? WHERE id = ?");
+$stmtMsg->execute([$message, $userId]);
+
+header('Location: profile.php?updated=1');
+exit;
 ?>
