@@ -27,14 +27,12 @@ if (!$admin || !password_verify($auth_pass, $admin['password_hash'])) {
 // --- Обработка действий ---
 $message = '';
 
-// Удаление пользователя (удаляем его заказы, затем самого пользователя)
+// Удаление пользователя
 if (isset($_GET['delete_user'])) {
     $userId = (int)$_GET['delete_user'];
     try {
         $pdo->beginTransaction();
-        // Удаляем заказы пользователя
         $pdo->prepare("DELETE FROM orders WHERE user_id = ?")->execute([$userId]);
-        // Удаляем самого пользователя
         $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
         $pdo->commit();
         $message = "<div class='success'>Пользователь #{$userId} удалён.</div>";
@@ -59,7 +57,7 @@ if (isset($_POST['delete_all_cancelled'])) {
     }
 }
 
-// Обновление пользователя (имя, телефон, email)
+// Обновление пользователя
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
     $userId = (int)$_POST['user_id'];
     $name = trim($_POST['name'] ?? '');
@@ -74,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
     }
 }
 
-// Обновление заказа (продукт, количество, доставка, опции, статус)
+// Обновление заказа
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_order'])) {
     $orderId = (int)$_POST['order_id'];
     $product = $_POST['product'] ?? '';
@@ -92,18 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_order'])) {
 }
 
 // --- Получение данных ---
-// Все пользователи
 $users = $pdo->query("SELECT id, name, phone, email, login FROM users ORDER BY id DESC")->fetchAll();
-
-// Все заказы (с привязкой к пользователям)
 $allOrders = $pdo->query("
     SELECT o.*, u.name as user_name, u.email as user_email 
     FROM orders o 
     JOIN users u ON o.user_id = u.id 
     ORDER BY o.created_at DESC
 ")->fetchAll();
-
-// Отменённые заказы
 $cancelledOrders = $pdo->query("
     SELECT o.*, u.name as user_name, u.email as user_email 
     FROM orders o 
@@ -112,7 +105,6 @@ $cancelledOrders = $pdo->query("
     ORDER BY o.created_at DESC
 ")->fetchAll();
 
-// Список продуктов для выпадающих списков
 $productsList = [
     'vegetables' => 'Овощи',
     'fruits' => 'Фрукты',
@@ -127,6 +119,7 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
 <head>
     <meta charset="UTF-8">
     <title>Управление | Клеш Рояль</title>
+        <link rel="icon" href="https://img.icons8.com/color/96/000000/crab.png" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -145,12 +138,71 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
         .btn { background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 20px; cursor: pointer; margin: 2px; }
         .btn-danger { background: #f44336; }
         .btn-warning { background: #ff9800; }
-        .edit-form { background: #f9f9f9; padding: 15px; margin-top: 15px; border-radius: 16px; }
-        .form-group { margin-bottom: 10px; }
-        .form-group label { display: inline-block; width: 100px; font-weight: 600; }
         .success { background: #d4edda; color: #155724; padding: 10px; border-radius: 10px; margin-bottom: 15px; }
         .error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 10px; margin-bottom: 15px; }
-        .info { background: #d1ecf1; color: #0c5460; padding: 10px; border-radius: 10px; margin-bottom: 15px; }
+        
+        /* Модальные окна */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            visibility: hidden;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .modal.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-card {
+            background: white;
+            border-radius: 28px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            text-align: left;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .modal-card .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            cursor: pointer;
+            color: #888;
+        }
+        .modal-card .close:hover {
+            color: #f44336;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: inline-block;
+            width: 100px;
+            font-weight: 600;
+        }
+        .form-group input, .form-group select {
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 40px;
+            width: calc(100% - 110px);
+        }
+        .form-group.checkbox label {
+            width: auto;
+        }
+        .form-group.checkbox input {
+            width: auto;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -186,17 +238,6 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <div id="edit-user-form" class="edit-form" style="display:none;">
-            <h3>Редактирование пользователя</h3>
-            <form method="post">
-                <input type="hidden" name="user_id" id="edit-user-id">
-                <div class="form-group"><label>Имя</label><input type="text" name="name" id="edit-user-name" required></div>
-                <div class="form-group"><label>Телефон</label><input type="text" name="phone" id="edit-user-phone" required></div>
-                <div class="form-group"><label>Email</label><input type="email" name="email" id="edit-user-email" required></div>
-                <button type="submit" name="edit_user" class="btn">Сохранить</button>
-                <button type="button" id="cancel-user-edit" class="btn">Отмена</button>
-            </form>
-        </div>
     </div>
 
     <!-- Вкладка: Все заказы -->
@@ -234,20 +275,6 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
                 </tbody>
             </table>
         </div>
-        <div id="edit-order-form" class="edit-form" style="display:none;">
-            <h3>Редактирование заказа</h3>
-            <form method="post">
-                <input type="hidden" name="order_id" id="edit-order-id">
-                <div class="form-group"><label>Продукт</label><select name="product" id="edit-order-product"></select></div>
-                <div class="form-group"><label>Количество</label><input type="number" name="quantity" id="edit-order-quantity" min="1"></div>
-                <div class="form-group"><label>Доставка</label><select name="delivery" id="edit-order-delivery"><option value="0">0</option><option value="300">300</option><option value="500">500</option></select></div>
-                <div class="form-group"><label>Упаковка</label><input type="checkbox" name="gift" id="edit-order-gift"></div>
-                <div class="form-group"><label>Био</label><input type="checkbox" name="organic" id="edit-order-organic"></div>
-                <div class="form-group"><label>Статус</label><select name="status" id="edit-order-status"></select></div>
-                <button type="submit" name="edit_order" class="btn">Сохранить</button>
-                <button type="button" id="cancel-order-edit" class="btn">Отмена</button>
-            </form>
-        </div>
     </div>
 
     <!-- Вкладка: Отменённые заказы -->
@@ -255,7 +282,7 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
         <h2>Отменённые заказы</h2>
         <?php if (count($cancelledOrders) > 0): ?>
             <form method="post" onsubmit="return confirm('Удалить ВСЕ отменённые заказы? Это действие нельзя отменить.');">
-                <button type="submit" name="delete_all_cancelled" class="btn btn-danger">🗑️ Удалить все отменённые заказы</button>
+                <button type="submit" name="delete_all_cancelled" class="btn btn-danger"> Удалить все отменённые заказы</button>
             </form>
             <div style="overflow-x: auto; margin-top: 20px;">
                 <table>
@@ -282,6 +309,41 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
     </div>
 </div>
 
+<!-- Модальное окно редактирования пользователя -->
+<div id="edit-user-modal" class="modal">
+    <div class="modal-card">
+        <span class="close" id="close-user-modal">&times;</span>
+        <h3>Редактирование пользователя</h3>
+        <form method="post">
+            <input type="hidden" name="user_id" id="user-id">
+            <div class="form-group"><label>Имя</label><input type="text" name="name" id="user-name" required></div>
+            <div class="form-group"><label>Телефон</label><input type="text" name="phone" id="user-phone" required></div>
+            <div class="form-group"><label>Email</label><input type="email" name="email" id="user-email" required></div>
+            <button type="submit" name="edit_user" class="btn">Сохранить</button>
+            <button type="button" id="cancel-user-modal" class="btn">Отмена</button>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно редактирования заказа -->
+<div id="edit-order-modal" class="modal">
+    <div class="modal-card">
+        <span class="close" id="close-order-modal">&times;</span>
+        <h3>Редактирование заказа</h3>
+        <form method="post">
+            <input type="hidden" name="order_id" id="order-id">
+            <div class="form-group"><label>Продукт</label><select name="product" id="order-product"></select></div>
+            <div class="form-group"><label>Количество</label><input type="number" name="quantity" id="order-quantity" min="1"></div>
+            <div class="form-group"><label>Доставка</label><select name="delivery" id="order-delivery"><option value="0">0</option><option value="300">300</option><option value="500">500</option></select></div>
+            <div class="form-group checkbox"><label>Упаковка</label><input type="checkbox" name="gift" id="order-gift"></div>
+            <div class="form-group checkbox"><label>Био</label><input type="checkbox" name="organic" id="order-organic"></div>
+            <div class="form-group"><label>Статус</label><select name="status" id="order-status"></select></div>
+            <button type="submit" name="edit_order" class="btn">Сохранить</button>
+            <button type="button" id="cancel-order-modal" class="btn">Отмена</button>
+        </form>
+    </div>
+</div>
+
 <script>
     // Переключение вкладок
     const tabs = document.querySelectorAll('.tab-btn');
@@ -296,29 +358,37 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
         });
     });
 
-    // Редактирование пользователя
-    const editUserBtns = document.querySelectorAll('.edit-user-btn');
-    const editUserForm = document.getElementById('edit-user-form');
-    const cancelUserEdit = document.getElementById('cancel-user-edit');
-    editUserBtns.forEach(btn => {
+    // Модальное окно пользователя
+    const userModal = document.getElementById('edit-user-modal');
+    const closeUserModal = document.getElementById('close-user-modal');
+    const cancelUserModal = document.getElementById('cancel-user-modal');
+    function openUserModal(id, name, phone, email) {
+        document.getElementById('user-id').value = id;
+        document.getElementById('user-name').value = name;
+        document.getElementById('user-phone').value = phone;
+        document.getElementById('user-email').value = email;
+        userModal.classList.add('active');
+    }
+    function closeUserModalFunc() { userModal.classList.remove('active'); }
+    if (closeUserModal) closeUserModal.onclick = closeUserModalFunc;
+    if (cancelUserModal) cancelUserModal.onclick = closeUserModalFunc;
+    document.querySelectorAll('.edit-user-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.getElementById('edit-user-id').value = btn.dataset.id;
-            document.getElementById('edit-user-name').value = btn.dataset.name;
-            document.getElementById('edit-user-phone').value = btn.dataset.phone;
-            document.getElementById('edit-user-email').value = btn.dataset.email;
-            editUserForm.style.display = 'block';
+            openUserModal(btn.dataset.id, btn.dataset.name, btn.dataset.phone, btn.dataset.email);
         });
     });
-    if (cancelUserEdit) cancelUserEdit.addEventListener('click', () => editUserForm.style.display = 'none');
 
-    // Редактирование заказа (данные из data-атрибутов, без лишних запросов)
-    const editOrderBtns = document.querySelectorAll('.edit-order-btn');
-    const editOrderForm = document.getElementById('edit-order-form');
-    const cancelOrderEdit = document.getElementById('cancel-order-edit');
-    const orderProductSelect = document.getElementById('edit-order-product');
-    const orderStatusSelect = document.getElementById('edit-order-status');
+    // Модальное окно заказа
+    const orderModal = document.getElementById('edit-order-modal');
+    const closeOrderModal = document.getElementById('close-order-modal');
+    const cancelOrderModal = document.getElementById('cancel-order-modal');
+    function closeOrderModalFunc() { orderModal.classList.remove('active'); }
+    if (closeOrderModal) closeOrderModal.onclick = closeOrderModalFunc;
+    if (cancelOrderModal) cancelOrderModal.onclick = closeOrderModalFunc;
 
     // Заполнение select продуктами и статусами
+    const orderProductSelect = document.getElementById('order-product');
+    const orderStatusSelect = document.getElementById('order-status');
     const products = <?= json_encode($productsList) ?>;
     const statuses = <?= json_encode($statuses) ?>;
     for (const [val, label] of Object.entries(products)) {
@@ -334,19 +404,18 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
         orderStatusSelect.appendChild(opt);
     }
 
-    editOrderBtns.forEach(btn => {
+    document.querySelectorAll('.edit-order-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.getElementById('edit-order-id').value = btn.dataset.id;
+            document.getElementById('order-id').value = btn.dataset.id;
             orderProductSelect.value = btn.dataset.product;
-            document.getElementById('edit-order-quantity').value = btn.dataset.quantity;
-            document.getElementById('edit-order-delivery').value = btn.dataset.delivery;
-            document.getElementById('edit-order-gift').checked = btn.dataset.gift == '1';
-            document.getElementById('edit-order-organic').checked = btn.dataset.organic == '1';
+            document.getElementById('order-quantity').value = btn.dataset.quantity;
+            document.getElementById('order-delivery').value = btn.dataset.delivery;
+            document.getElementById('order-gift').checked = btn.dataset.gift == '1';
+            document.getElementById('order-organic').checked = btn.dataset.organic == '1';
             orderStatusSelect.value = btn.dataset.status;
-            editOrderForm.style.display = 'block';
+            orderModal.classList.add('active');
         });
     });
-    if (cancelOrderEdit) cancelOrderEdit.addEventListener('click', () => editOrderForm.style.display = 'none');
 </script>
 </body>
 </html>
