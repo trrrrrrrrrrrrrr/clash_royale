@@ -27,13 +27,14 @@ if (!$admin || !password_verify($auth_pass, $admin['password_hash'])) {
 // --- Обработка действий ---
 $message = '';
 
-// Удаление пользователя (каскадно удалит заказы)
+// Удаление пользователя (удаляем его заказы, затем самого пользователя)
 if (isset($_GET['delete_user'])) {
     $userId = (int)$_GET['delete_user'];
     try {
         $pdo->beginTransaction();
-        $pdo->prepare("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id = ?)")->execute([$userId]);
+        // Удаляем заказы пользователя
         $pdo->prepare("DELETE FROM orders WHERE user_id = ?")->execute([$userId]);
+        // Удаляем самого пользователя
         $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
         $pdo->commit();
         $message = "<div class='success'>Пользователь #{$userId} удалён.</div>";
@@ -47,18 +48,11 @@ if (isset($_GET['delete_user'])) {
 if (isset($_POST['delete_all_cancelled'])) {
     try {
         $pdo->beginTransaction();
-        // Находим ID заказов со статусом 'cancelled'
-        $stmt = $pdo->query("SELECT id FROM orders WHERE status = 'cancelled'");
-        $cancelledIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        if (!empty($cancelledIds)) {
-            $placeholders = implode(',', array_fill(0, count($cancelledIds), '?'));
-            $pdo->prepare("DELETE FROM order_items WHERE order_id IN ($placeholders)")->execute($cancelledIds);
-            $pdo->prepare("DELETE FROM orders WHERE id IN ($placeholders)")->execute($cancelledIds);
-            $message = "<div class='success'>Удалено " . count($cancelledIds) . " отменённых заказов.</div>";
-        } else {
-            $message = "<div class='info'>Нет отменённых заказов.</div>";
-        }
+        $stmt = $pdo->prepare("DELETE FROM orders WHERE status = 'cancelled'");
+        $stmt->execute();
+        $count = $stmt->rowCount();
         $pdo->commit();
+        $message = "<div class='success'>Удалено {$count} отменённых заказов.</div>";
     } catch (Exception $e) {
         $pdo->rollBack();
         $message = "<div class='error'>Ошибка: {$e->getMessage()}</div>";
@@ -185,14 +179,7 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
                     <td><?= htmlspecialchars($user['phone']) ?></td>
                     <td><?= htmlspecialchars($user['email']) ?></td>
                     <td>
-                        <button class="btn edit-order-btn" 
-                        data-id="<?= $order['id'] ?>"
-                        data-product="<?= $order['product_type'] ?>"
-                        data-quantity="<?= $order['quantity'] ?>"
-                        data-delivery="<?= $order['delivery_cost'] ?>"
-                        data-gift="<?= $order['gift_wrap'] ?>"
-                        data-organic="<?= $order['organic_cert'] ?>"
-                        data-status="<?= $order['status'] ?>"> Редактировать</button>
+                        <button class="btn edit-user-btn" data-id="<?= $user['id'] ?>" data-name="<?= htmlspecialchars($user['name']) ?>" data-phone="<?= htmlspecialchars($user['phone']) ?>" data-email="<?= htmlspecialchars($user['email']) ?>"> Редактировать</button>
                         <a href="?delete_user=<?= $user['id'] ?>" class="btn btn-danger" onclick="return confirm('Удалить пользователя №<?= $user['id'] ?> и все его заказы?')"> Удалить</a>
                     </td>
                 </tr>
@@ -232,7 +219,16 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
                     <td><?= $order['organic_cert'] ? '✅' : '❌' ?></td>
                     <td><?= $order['total_price'] ?> ₽</td>
                     <td><?= $statuses[$order['status']] ?></td>
-                    <td><button class="btn edit-order-btn" data-id="<?= $order['id'] ?>">✏️ Ред.</button></td>
+                    <td>
+                        <button class="btn edit-order-btn" 
+                            data-id="<?= $order['id'] ?>"
+                            data-product="<?= $order['product_type'] ?>"
+                            data-quantity="<?= $order['quantity'] ?>"
+                            data-delivery="<?= $order['delivery_cost'] ?>"
+                            data-gift="<?= $order['gift_wrap'] ?>"
+                            data-organic="<?= $order['organic_cert'] ?>"
+                            data-status="<?= $order['status'] ?>"> Редактировать</button>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -315,7 +311,7 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
     });
     if (cancelUserEdit) cancelUserEdit.addEventListener('click', () => editUserForm.style.display = 'none');
 
-    // Редактирование заказа (динамическое заполнение)
+    // Редактирование заказа (данные из data-атрибутов, без лишних запросов)
     const editOrderBtns = document.querySelectorAll('.edit-order-btn');
     const editOrderForm = document.getElementById('edit-order-form');
     const cancelOrderEdit = document.getElementById('cancel-order-edit');
@@ -339,17 +335,17 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
     }
 
     editOrderBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.getElementById('edit-order-id').value = btn.dataset.id;
-        orderProductSelect.value = btn.dataset.product;
-        document.getElementById('edit-order-quantity').value = btn.dataset.quantity;
-        document.getElementById('edit-order-delivery').value = btn.dataset.delivery;
-        document.getElementById('edit-order-gift').checked = btn.dataset.gift == '1';
-        document.getElementById('edit-order-organic').checked = btn.dataset.organic == '1';
-        orderStatusSelect.value = btn.dataset.status;
-        editOrderForm.style.display = 'block';
+        btn.addEventListener('click', () => {
+            document.getElementById('edit-order-id').value = btn.dataset.id;
+            orderProductSelect.value = btn.dataset.product;
+            document.getElementById('edit-order-quantity').value = btn.dataset.quantity;
+            document.getElementById('edit-order-delivery').value = btn.dataset.delivery;
+            document.getElementById('edit-order-gift').checked = btn.dataset.gift == '1';
+            document.getElementById('edit-order-organic').checked = btn.dataset.organic == '1';
+            orderStatusSelect.value = btn.dataset.status;
+            editOrderForm.style.display = 'block';
+        });
     });
-});
     if (cancelOrderEdit) cancelOrderEdit.addEventListener('click', () => editOrderForm.style.display = 'none');
 </script>
 </body>

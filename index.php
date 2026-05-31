@@ -830,6 +830,7 @@ if (isset($_SESSION['user_id'])) {
                 <li><a href="#products">Урожай</a></li>
                 <li><a href="#gallery">Галерея</a></li>
                 <li><a href="#order-form">Заказать продукты</a></li>
+                <li><a href="admin.php">Управление</a></li>
             </ul>
             <div class="quote-section">
                 <p class="inspiration-quote">
