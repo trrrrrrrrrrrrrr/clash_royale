@@ -27,6 +27,27 @@ if (!$admin || !password_verify($auth_pass, $admin['password_hash'])) {
 // --- Обработка действий ---
 $message = '';
 
+// Обработка параметров после редактирования пользователя
+if (isset($_GET['user_updated'])) {
+    $message = "<div class='success'>Пользователь обновлён.</div>";
+}
+if (isset($_GET['edit_user_errors'])) {
+    $errors = explode('|', $_GET['errors'] ?? '');
+    $errorHtml = '<ul>';
+    foreach ($errors as $err) {
+        $errorHtml .= '<li>' . htmlspecialchars($err) . '</li>';
+    }
+    $errorHtml .= '</ul>';
+    $message = "<div class='error'>$errorHtml</div>";
+    // Сохраняем данные для повторного заполнения формы (через сессию или скрытые поля)
+    $_SESSION['edit_user_data'] = [
+        'id' => $_GET['user_id'] ?? 0,
+        'name' => $_GET['name'] ?? '',
+        'phone' => $_GET['phone'] ?? '',
+        'email' => $_GET['email'] ?? ''
+    ];
+}
+
 // Удаление пользователя
 if (isset($_GET['delete_user'])) {
     $userId = (int)$_GET['delete_user'];
@@ -57,22 +78,49 @@ if (isset($_POST['delete_all_cancelled'])) {
     }
 }
 
-// Обновление пользователя
+// Обновление пользователя с валидацией
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_user'])) {
     $userId = (int)$_POST['user_id'];
     $name = trim($_POST['name'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $email = trim($_POST['email'] ?? '');
-    if (!empty($name) && !empty($phone) && !empty($email)) {
+    
+    $errors = [];
+    if (empty($name)) {
+        $errors[] = 'Имя обязательно.';
+    } elseif (!preg_match('/^[а-яА-Яa-zA-Z\s]+$/u', $name)) {
+        $errors[] = 'Имя должно содержать только буквы и пробелы.';
+    } elseif (strlen($name) > 150) {
+        $errors[] = 'Имя не должно превышать 150 символов.';
+    }
+    
+    if (empty($phone)) {
+        $errors[] = 'Телефон обязателен.';
+    } else {
+        $digits = preg_replace('/\D/', '', $phone);
+        $digitCount = strlen($digits);
+        if ($digitCount < 10 || $digitCount > 12) {
+            $errors[] = 'Номер телефона должен содержать от 10 до 12 цифр.';
+        }
+    }
+    
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Некорректный email.';
+    }
+    
+    if (empty($errors)) {
         $stmt = $pdo->prepare("UPDATE users SET name = ?, phone = ?, email = ? WHERE id = ?");
         $stmt->execute([$name, $phone, $email, $userId]);
-        $message = "<div class='success'>Пользователь обновлён.</div>";
+        header('Location: admin.php?user_updated=1');
+        exit;
     } else {
-        $message = "<div class='error'>Заполните все поля.</div>";
+        $error_string = implode('|', $errors);
+        header("Location: admin.php?edit_user_errors=1&user_id=$userId&name=".urlencode($name)."&phone=".urlencode($phone)."&email=".urlencode($email)."&errors=$error_string");
+        exit;
     }
 }
 
-// Обновление заказа
+// Обновление заказа (без изменений)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_order'])) {
     $orderId = (int)$_POST['order_id'];
     $product = $_POST['product'] ?? '';
@@ -113,6 +161,10 @@ $productsList = [
     'cheese' => 'Сыр'
 ];
 $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'completed' => 'Выполнен', 'cancelled' => 'Отменён'];
+
+// Если есть сохранённые ошибки редактирования, передаём данные в модалку
+$editUserData = isset($_SESSION['edit_user_data']) ? $_SESSION['edit_user_data'] : null;
+unset($_SESSION['edit_user_data']);
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -203,6 +255,13 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
             width: auto;
             margin-left: 10px;
         }
+        .error-message {
+            color: #f44336;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            display: inline-block;
+            margin-left: 100px;
+        }
     </style>
 </head>
 <body>
@@ -231,7 +290,11 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
                     <td><?= htmlspecialchars($user['phone']) ?></td>
                     <td><?= htmlspecialchars($user['email']) ?></td>
                     <td>
-                        <button class="btn edit-user-btn" data-id="<?= $user['id'] ?>" data-name="<?= htmlspecialchars($user['name']) ?>" data-phone="<?= htmlspecialchars($user['phone']) ?>" data-email="<?= htmlspecialchars($user['email']) ?>"> Редактировать</button>
+                        <button class="btn edit-user-btn" 
+                            data-id="<?= $user['id'] ?>"
+                            data-name="<?= htmlspecialchars($user['name']) ?>"
+                            data-phone="<?= htmlspecialchars($user['phone']) ?>"
+                            data-email="<?= htmlspecialchars($user['email']) ?>"> Редактировать</button>
                         <a href="?delete_user=<?= $user['id'] ?>" class="btn btn-danger" onclick="return confirm('Удалить пользователя №<?= $user['id'] ?> и все его заказы?')"> Удалить</a>
                     </td>
                 </tr>
@@ -315,10 +378,19 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
         <span class="close" id="close-user-modal">&times;</span>
         <h3>Редактирование пользователя</h3>
         <form method="post">
-            <input type="hidden" name="user_id" id="user-id">
-            <div class="form-group"><label>Имя</label><input type="text" name="name" id="user-name" required></div>
-            <div class="form-group"><label>Телефон</label><input type="text" name="phone" id="user-phone" required></div>
-            <div class="form-group"><label>Email</label><input type="email" name="email" id="user-email" required></div>
+            <input type="hidden" name="user_id" id="user-id" value="<?= $editUserData['id'] ?? '' ?>">
+            <div class="form-group">
+                <label>Имя</label>
+                <input type="text" name="name" id="user-name" value="<?= htmlspecialchars($editUserData['name'] ?? '') ?>" required>
+            </div>
+            <div class="form-group">
+                <label>Телефон</label>
+                <input type="text" name="phone" id="user-phone" value="<?= htmlspecialchars($editUserData['phone'] ?? '') ?>" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" id="user-email" value="<?= htmlspecialchars($editUserData['email'] ?? '') ?>" required>
+            </div>
             <button type="submit" name="edit_user" class="btn">Сохранить</button>
             <button type="button" id="cancel-user-modal" class="btn">Отмена</button>
         </form>
@@ -377,6 +449,12 @@ $statuses = ['new' => 'Новый', 'processed' => 'В обработке', 'com
             openUserModal(btn.dataset.id, btn.dataset.name, btn.dataset.phone, btn.dataset.email);
         });
     });
+    // Если были ошибки редактирования, автоматически открываем модалку
+    <?php if ($editUserData && isset($_GET['edit_user_errors'])): ?>
+        window.addEventListener('load', () => {
+            openUserModal(<?= json_encode($editUserData['id']) ?>, <?= json_encode($editUserData['name']) ?>, <?= json_encode($editUserData['phone']) ?>, <?= json_encode($editUserData['email']) ?>);
+        });
+    <?php endif; ?>
 
     // Модальное окно заказа
     const orderModal = document.getElementById('edit-order-modal');
